@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "from": "component.coffee.hbs",
+      "to": "app/components/{{name}}/{{name}}.coffee"
+    },
+    {
+      "from": "template.jade.hbs",
+      "to": "app/components/{{name}}/template.jade"
+    },
+    {
+      "from": "style.sass.hbs",
+      "to": "app/components/{{name}}/style.sass"
+    }
+  ]
+}
