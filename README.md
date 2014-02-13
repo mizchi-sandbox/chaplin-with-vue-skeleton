@@ -2,15 +2,18 @@
 
 This is a brunch - vue.js project.
 
-## Install
+## How to run
 
 ```
-npm install
-bower install
-brunch watch -s
+$ mkdir test-vue
+$ cd test-vue
+$ brunch new git@github.com:mizchi/brunch-with-vue
+$ npm install
+$ bower install
+$ brunch watch -s
 ```
 
-and open http://localhost:3333
+open http://localhost:3333
 
 ## Generators
 
@@ -23,13 +26,7 @@ $ scaffolt component foo
 14 Feb 04:06:18 - info: create app/components/foo/template.jade
 ```
 
-Use custom tag
-
-```
-<foo/>
-```
-
-`foo` tag  will expand `app/components/foo/template.jade`
+`<foo/>` tag will expand by its definition.
 
 ## Test
 
