@@ -1,8 +1,8 @@
 {
   "files": [
     {
-      "from": "component.coffee.hbs",
-      "to": "app/components/{{name}}/{{name}}.coffee"
+      "from": "index.coffee.hbs",
+      "to": "app/components/{{name}}/index.coffee"
     },
     {
       "from": "template.jade.hbs",

@@ -90,8 +90,12 @@
   globals.require.list = list;
   globals.require.brunch = true;
 })();
-require.register("test/javascripts/test", function(exports, require, module) {
-
+require.register("test/initialize", function(exports, require, module) {
+describe('foo', function() {
+  return it('should return', function() {
+    return expect(true).to.be["true"];
+  });
+});
 });
 
 ;

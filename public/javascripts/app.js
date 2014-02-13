@@ -90,14 +90,92 @@
   globals.require.list = list;
   globals.require.brunch = true;
 })();
-require.register("initialize", function(exports, require, module) {
-var application = require('application');
-
-$(function() {
-  application.initialize();
-  Backbone.history.start();
+require.register("components/bar/index", function(exports, require, module) {
+Vue.component('bar', module.exports = Vue.extend({
+  template: (require('./template'))()
+}));
 });
 
+;require.register("components/bar/template", function(exports, require, module) {
+var __templateData = function template(locals) {
+var buf = [];
+var jade_mixins = {};
+
+buf.push("<div class=\"bar\">bar</div>");;return buf.join("");
+};
+if (typeof define === 'function' && define.amd) {
+  define([], function() {
+    return __templateData;
+  });
+} else if (typeof module === 'object' && module && module.exports) {
+  module.exports = __templateData;
+} else {
+  __templateData;
+}
+});
+
+;require.register("components/foo/index", function(exports, require, module) {
+Vue.component('foo', module.exports = Vue.extend({
+  template: (require('./template'))()
+}));
+});
+
+;require.register("components/foo/template", function(exports, require, module) {
+var __templateData = function template(locals) {
+var buf = [];
+var jade_mixins = {};
+
+buf.push("<div class=\"foo\">foo</div>");;return buf.join("");
+};
+if (typeof define === 'function' && define.amd) {
+  define([], function() {
+    return __templateData;
+  });
+} else if (typeof module === 'object' && module && module.exports) {
+  module.exports = __templateData;
+} else {
+  __templateData;
+}
+});
+
+;require.register("components/layout/index", function(exports, require, module) {
+Vue.component('layout', module.exports = Vue.extend({
+  template: (require('./template'))()
+}));
+});
+
+;require.register("components/layout/template", function(exports, require, module) {
+var __templateData = function template(locals) {
+var buf = [];
+var jade_mixins = {};
+
+buf.push("<div class=\"layout\">layout</div><foo></foo><bar></bar>");;return buf.join("");
+};
+if (typeof define === 'function' && define.amd) {
+  define([], function() {
+    return __templateData;
+  });
+} else if (typeof module === 'object' && module && module.exports) {
+  module.exports = __templateData;
+} else {
+  __templateData;
+}
+});
+
+;require.register("initialize", function(exports, require, module) {
+var Layout;
+
+require('components/foo');
+
+require('components/bar');
+
+Layout = require('components/layout');
+
+$(function() {
+  var layout;
+  layout = new Layout;
+  return $('body').append(layout.$el);
+});
 });
 
 ;
