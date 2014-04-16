@@ -144,7 +144,11 @@ module.exports = Vue.extend({
 });
 
 ;require.register("components/foo/index", function(exports, require, module) {
-Vue.component('foo', module.exports = Vue.extend({
+var Component;
+
+Component = require('components/base/component');
+
+Vue.component('foo', module.exports = Component.extend({
   template: (require('./template'))()
 }));
 });
@@ -215,6 +219,28 @@ module.exports = Controller = (function(_super) {
   return Controller;
 
 })(Chaplin.Controller);
+});
+
+;require.register("controllers/foo-controller", function(exports, require, module) {
+var Controller, Foo, _ref,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+Controller = require('controllers/base/controller');
+
+module.exports = Foo = (function(_super) {
+  __extends(Foo, _super);
+
+  function Foo() {
+    _ref = Foo.__super__.constructor.apply(this, arguments);
+    return _ref;
+  }
+
+  Foo.prototype.index = function() {};
+
+  return Foo;
+
+})(Controller);
 });
 
 ;require.register("controllers/home-controller", function(exports, require, module) {
