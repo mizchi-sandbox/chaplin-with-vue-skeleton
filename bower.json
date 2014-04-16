@@ -12,9 +12,20 @@
     "test",
     "tests"
   ],
+  "overrides": {
+    "backbone": {
+      "main": "backbone.js",
+      "dependencies": {
+        "lodash": "*",
+        "jquery": "*"
+      }
+    }
+  },
   "dependencies": {
-    "vue": "~0.8.5",
+    "vue": "~0.10.3",
     "jquery": "~2.1.0",
-    "chai": "~1.9.0"
+    "chai": "~1.9.0",
+    "chaplin": "~1.0.0",
+    "lodash": "~2.4.1"
   }
 }

@@ -9202,6 +9202,8773 @@ return jQuery;
 
 }));
 
+;/**
+ * @license
+ * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
+ * Build: `lodash -o ./dist/lodash.compat.js`
+ * Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.5.2 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <http://lodash.com/license>
+ */
+;(function() {
+
+  /** Used as a safe reference for `undefined` in pre ES5 environments */
+  var undefined;
+
+  /** Used to pool arrays and objects used internally */
+  var arrayPool = [],
+      objectPool = [];
+
+  /** Used to generate unique IDs */
+  var idCounter = 0;
+
+  /** Used internally to indicate various things */
+  var indicatorObject = {};
+
+  /** Used to prefix keys to avoid issues with `__proto__` and properties on `Object.prototype` */
+  var keyPrefix = +new Date + '';
+
+  /** Used as the size when optimizations are enabled for large arrays */
+  var largeArraySize = 75;
+
+  /** Used as the max size of the `arrayPool` and `objectPool` */
+  var maxPoolSize = 40;
+
+  /** Used to detect and test whitespace */
+  var whitespace = (
+    // whitespace
+    ' \t\x0B\f\xA0\ufeff' +
+
+    // line terminators
+    '\n\r\u2028\u2029' +
+
+    // unicode category "Zs" space separators
+    '\u1680\u180e\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u202f\u205f\u3000'
+  );
+
+  /** Used to match empty string literals in compiled template source */
+  var reEmptyStringLeading = /\b__p \+= '';/g,
+      reEmptyStringMiddle = /\b(__p \+=) '' \+/g,
+      reEmptyStringTrailing = /(__e\(.*?\)|\b__t\)) \+\n'';/g;
+
+  /**
+   * Used to match ES6 template delimiters
+   * http://people.mozilla.org/~jorendorff/es6-draft.html#sec-literals-string-literals
+   */
+  var reEsTemplate = /\$\{([^\\}]*(?:\\.[^\\}]*)*)\}/g;
+
+  /** Used to match regexp flags from their coerced string values */
+  var reFlags = /\w*$/;
+
+  /** Used to detected named functions */
+  var reFuncName = /^\s*function[ \n\r\t]+\w/;
+
+  /** Used to match "interpolate" template delimiters */
+  var reInterpolate = /<%=([\s\S]+?)%>/g;
+
+  /** Used to match leading whitespace and zeros to be removed */
+  var reLeadingSpacesAndZeros = RegExp('^[' + whitespace + ']*0+(?=.$)');
+
+  /** Used to ensure capturing order of template delimiters */
+  var reNoMatch = /($^)/;
+
+  /** Used to detect functions containing a `this` reference */
+  var reThis = /\bthis\b/;
+
+  /** Used to match unescaped characters in compiled string literals */
+  var reUnescapedString = /['\n\r\t\u2028\u2029\\]/g;
+
+  /** Used to assign default `context` object properties */
+  var contextProps = [
+    'Array', 'Boolean', 'Date', 'Error', 'Function', 'Math', 'Number', 'Object',
+    'RegExp', 'String', '_', 'attachEvent', 'clearTimeout', 'isFinite', 'isNaN',
+    'parseInt', 'setTimeout'
+  ];
+
+  /** Used to fix the JScript [[DontEnum]] bug */
+  var shadowedProps = [
+    'constructor', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable',
+    'toLocaleString', 'toString', 'valueOf'
+  ];
+
+  /** Used to make template sourceURLs easier to identify */
+  var templateCounter = 0;
+
+  /** `Object#toString` result shortcuts */
+  var argsClass = '[object Arguments]',
+      arrayClass = '[object Array]',
+      boolClass = '[object Boolean]',
+      dateClass = '[object Date]',
+      errorClass = '[object Error]',
+      funcClass = '[object Function]',
+      numberClass = '[object Number]',
+      objectClass = '[object Object]',
+      regexpClass = '[object RegExp]',
+      stringClass = '[object String]';
+
+  /** Used to identify object classifications that `_.clone` supports */
+  var cloneableClasses = {};
+  cloneableClasses[funcClass] = false;
+  cloneableClasses[argsClass] = cloneableClasses[arrayClass] =
+  cloneableClasses[boolClass] = cloneableClasses[dateClass] =
+  cloneableClasses[numberClass] = cloneableClasses[objectClass] =
+  cloneableClasses[regexpClass] = cloneableClasses[stringClass] = true;
+
+  /** Used as an internal `_.debounce` options object */
+  var debounceOptions = {
+    'leading': false,
+    'maxWait': 0,
+    'trailing': false
+  };
+
+  /** Used as the property descriptor for `__bindData__` */
+  var descriptor = {
+    'configurable': false,
+    'enumerable': false,
+    'value': null,
+    'writable': false
+  };
+
+  /** Used as the data object for `iteratorTemplate` */
+  var iteratorData = {
+    'args': '',
+    'array': null,
+    'bottom': '',
+    'firstArg': '',
+    'init': '',
+    'keys': null,
+    'loop': '',
+    'shadowedProps': null,
+    'support': null,
+    'top': '',
+    'useHas': false
+  };
+
+  /** Used to determine if values are of the language type Object */
+  var objectTypes = {
+    'boolean': false,
+    'function': true,
+    'object': true,
+    'number': false,
+    'string': false,
+    'undefined': false
+  };
+
+  /** Used to escape characters for inclusion in compiled string literals */
+  var stringEscapes = {
+    '\\': '\\',
+    "'": "'",
+    '\n': 'n',
+    '\r': 'r',
+    '\t': 't',
+    '\u2028': 'u2028',
+    '\u2029': 'u2029'
+  };
+
+  /** Used as a reference to the global object */
+  var root = (objectTypes[typeof window] && window) || this;
+
+  /** Detect free variable `exports` */
+  var freeExports = objectTypes[typeof exports] && exports && !exports.nodeType && exports;
+
+  /** Detect free variable `module` */
+  var freeModule = objectTypes[typeof module] && module && !module.nodeType && module;
+
+  /** Detect the popular CommonJS extension `module.exports` */
+  var moduleExports = freeModule && freeModule.exports === freeExports && freeExports;
+
+  /** Detect free variable `global` from Node.js or Browserified code and use it as `root` */
+  var freeGlobal = objectTypes[typeof global] && global;
+  if (freeGlobal && (freeGlobal.global === freeGlobal || freeGlobal.window === freeGlobal)) {
+    root = freeGlobal;
+  }
+
+  /*--------------------------------------------------------------------------*/
+
+  /**
+   * The base implementation of `_.indexOf` without support for binary searches
+   * or `fromIndex` constraints.
+   *
+   * @private
+   * @param {Array} array The array to search.
+   * @param {*} value The value to search for.
+   * @param {number} [fromIndex=0] The index to search from.
+   * @returns {number} Returns the index of the matched value or `-1`.
+   */
+  function baseIndexOf(array, value, fromIndex) {
+    var index = (fromIndex || 0) - 1,
+        length = array ? array.length : 0;
+
+    while (++index < length) {
+      if (array[index] === value) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * An implementation of `_.contains` for cache objects that mimics the return
+   * signature of `_.indexOf` by returning `0` if the value is found, else `-1`.
+   *
+   * @private
+   * @param {Object} cache The cache object to inspect.
+   * @param {*} value The value to search for.
+   * @returns {number} Returns `0` if `value` is found, else `-1`.
+   */
+  function cacheIndexOf(cache, value) {
+    var type = typeof value;
+    cache = cache.cache;
+
+    if (type == 'boolean' || value == null) {
+      return cache[value] ? 0 : -1;
+    }
+    if (type != 'number' && type != 'string') {
+      type = 'object';
+    }
+    var key = type == 'number' ? value : keyPrefix + value;
+    cache = (cache = cache[type]) && cache[key];
+
+    return type == 'object'
+      ? (cache && baseIndexOf(cache, value) > -1 ? 0 : -1)
+      : (cache ? 0 : -1);
+  }
+
+  /**
+   * Adds a given value to the corresponding cache object.
+   *
+   * @private
+   * @param {*} value The value to add to the cache.
+   */
+  function cachePush(value) {
+    var cache = this.cache,
+        type = typeof value;
+
+    if (type == 'boolean' || value == null) {
+      cache[value] = true;
+    } else {
+      if (type != 'number' && type != 'string') {
+        type = 'object';
+      }
+      var key = type == 'number' ? value : keyPrefix + value,
+          typeCache = cache[type] || (cache[type] = {});
+
+      if (type == 'object') {
+        (typeCache[key] || (typeCache[key] = [])).push(value);
+      } else {
+        typeCache[key] = true;
+      }
+    }
+  }
+
+  /**
+   * Used by `_.max` and `_.min` as the default callback when a given
+   * collection is a string value.
+   *
+   * @private
+   * @param {string} value The character to inspect.
+   * @returns {number} Returns the code unit of given character.
+   */
+  function charAtCallback(value) {
+    return value.charCodeAt(0);
+  }
+
+  /**
+   * Used by `sortBy` to compare transformed `collection` elements, stable sorting
+   * them in ascending order.
+   *
+   * @private
+   * @param {Object} a The object to compare to `b`.
+   * @param {Object} b The object to compare to `a`.
+   * @returns {number} Returns the sort order indicator of `1` or `-1`.
+   */
+  function compareAscending(a, b) {
+    var ac = a.criteria,
+        bc = b.criteria,
+        index = -1,
+        length = ac.length;
+
+    while (++index < length) {
+      var value = ac[index],
+          other = bc[index];
+
+      if (value !== other) {
+        if (value > other || typeof value == 'undefined') {
+          return 1;
+        }
+        if (value < other || typeof other == 'undefined') {
+          return -1;
+        }
+      }
+    }
+    // Fixes an `Array#sort` bug in the JS engine embedded in Adobe applications
+    // that causes it, under certain circumstances, to return the same value for
+    // `a` and `b`. See https://github.com/jashkenas/underscore/pull/1247
+    //
+    // This also ensures a stable sort in V8 and other engines.
+    // See http://code.google.com/p/v8/issues/detail?id=90
+    return a.index - b.index;
+  }
+
+  /**
+   * Creates a cache object to optimize linear searches of large arrays.
+   *
+   * @private
+   * @param {Array} [array=[]] The array to search.
+   * @returns {null|Object} Returns the cache object or `null` if caching should not be used.
+   */
+  function createCache(array) {
+    var index = -1,
+        length = array.length,
+        first = array[0],
+        mid = array[(length / 2) | 0],
+        last = array[length - 1];
+
+    if (first && typeof first == 'object' &&
+        mid && typeof mid == 'object' && last && typeof last == 'object') {
+      return false;
+    }
+    var cache = getObject();
+    cache['false'] = cache['null'] = cache['true'] = cache['undefined'] = false;
+
+    var result = getObject();
+    result.array = array;
+    result.cache = cache;
+    result.push = cachePush;
+
+    while (++index < length) {
+      result.push(array[index]);
+    }
+    return result;
+  }
+
+  /**
+   * Used by `template` to escape characters for inclusion in compiled
+   * string literals.
+   *
+   * @private
+   * @param {string} match The matched character to escape.
+   * @returns {string} Returns the escaped character.
+   */
+  function escapeStringChar(match) {
+    return '\\' + stringEscapes[match];
+  }
+
+  /**
+   * Gets an array from the array pool or creates a new one if the pool is empty.
+   *
+   * @private
+   * @returns {Array} The array from the pool.
+   */
+  function getArray() {
+    return arrayPool.pop() || [];
+  }
+
+  /**
+   * Gets an object from the object pool or creates a new one if the pool is empty.
+   *
+   * @private
+   * @returns {Object} The object from the pool.
+   */
+  function getObject() {
+    return objectPool.pop() || {
+      'array': null,
+      'cache': null,
+      'criteria': null,
+      'false': false,
+      'index': 0,
+      'null': false,
+      'number': null,
+      'object': null,
+      'push': null,
+      'string': null,
+      'true': false,
+      'undefined': false,
+      'value': null
+    };
+  }
+
+  /**
+   * Checks if `value` is a DOM node in IE < 9.
+   *
+   * @private
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if the `value` is a DOM node, else `false`.
+   */
+  function isNode(value) {
+    // IE < 9 presents DOM nodes as `Object` objects except they have `toString`
+    // methods that are `typeof` "string" and still can coerce nodes to strings
+    return typeof value.toString != 'function' && typeof (value + '') == 'string';
+  }
+
+  /**
+   * Releases the given array back to the array pool.
+   *
+   * @private
+   * @param {Array} [array] The array to release.
+   */
+  function releaseArray(array) {
+    array.length = 0;
+    if (arrayPool.length < maxPoolSize) {
+      arrayPool.push(array);
+    }
+  }
+
+  /**
+   * Releases the given object back to the object pool.
+   *
+   * @private
+   * @param {Object} [object] The object to release.
+   */
+  function releaseObject(object) {
+    var cache = object.cache;
+    if (cache) {
+      releaseObject(cache);
+    }
+    object.array = object.cache = object.criteria = object.object = object.number = object.string = object.value = null;
+    if (objectPool.length < maxPoolSize) {
+      objectPool.push(object);
+    }
+  }
+
+  /**
+   * Slices the `collection` from the `start` index up to, but not including,
+   * the `end` index.
+   *
+   * Note: This function is used instead of `Array#slice` to support node lists
+   * in IE < 9 and to ensure dense arrays are returned.
+   *
+   * @private
+   * @param {Array|Object|string} collection The collection to slice.
+   * @param {number} start The start index.
+   * @param {number} end The end index.
+   * @returns {Array} Returns the new array.
+   */
+  function slice(array, start, end) {
+    start || (start = 0);
+    if (typeof end == 'undefined') {
+      end = array ? array.length : 0;
+    }
+    var index = -1,
+        length = end - start || 0,
+        result = Array(length < 0 ? 0 : length);
+
+    while (++index < length) {
+      result[index] = array[start + index];
+    }
+    return result;
+  }
+
+  /*--------------------------------------------------------------------------*/
+
+  /**
+   * Create a new `lodash` function using the given context object.
+   *
+   * @static
+   * @memberOf _
+   * @category Utilities
+   * @param {Object} [context=root] The context object.
+   * @returns {Function} Returns the `lodash` function.
+   */
+  function runInContext(context) {
+    // Avoid issues with some ES3 environments that attempt to use values, named
+    // after built-in constructors like `Object`, for the creation of literals.
+    // ES5 clears this up by stating that literals must use built-in constructors.
+    // See http://es5.github.io/#x11.1.5.
+    context = context ? _.defaults(root.Object(), context, _.pick(root, contextProps)) : root;
+
+    /** Native constructor references */
+    var Array = context.Array,
+        Boolean = context.Boolean,
+        Date = context.Date,
+        Error = context.Error,
+        Function = context.Function,
+        Math = context.Math,
+        Number = context.Number,
+        Object = context.Object,
+        RegExp = context.RegExp,
+        String = context.String,
+        TypeError = context.TypeError;
+
+    /**
+     * Used for `Array` method references.
+     *
+     * Normally `Array.prototype` would suffice, however, using an array literal
+     * avoids issues in Narwhal.
+     */
+    var arrayRef = [];
+
+    /** Used for native method references */
+    var errorProto = Error.prototype,
+        objectProto = Object.prototype,
+        stringProto = String.prototype;
+
+    /** Used to restore the original `_` reference in `noConflict` */
+    var oldDash = context._;
+
+    /** Used to resolve the internal [[Class]] of values */
+    var toString = objectProto.toString;
+
+    /** Used to detect if a method is native */
+    var reNative = RegExp('^' +
+      String(toString)
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/toString| for [^\]]+/g, '.*?') + '$'
+    );
+
+    /** Native method shortcuts */
+    var ceil = Math.ceil,
+        clearTimeout = context.clearTimeout,
+        floor = Math.floor,
+        fnToString = Function.prototype.toString,
+        getPrototypeOf = isNative(getPrototypeOf = Object.getPrototypeOf) && getPrototypeOf,
+        hasOwnProperty = objectProto.hasOwnProperty,
+        push = arrayRef.push,
+        propertyIsEnumerable = objectProto.propertyIsEnumerable,
+        setTimeout = context.setTimeout,
+        splice = arrayRef.splice,
+        unshift = arrayRef.unshift;
+
+    /** Used to set meta data on functions */
+    var defineProperty = (function() {
+      // IE 8 only accepts DOM elements
+      try {
+        var o = {},
+            func = isNative(func = Object.defineProperty) && func,
+            result = func(o, o, o) && func;
+      } catch(e) { }
+      return result;
+    }());
+
+    /* Native method shortcuts for methods with the same name as other `lodash` methods */
+    var nativeCreate = isNative(nativeCreate = Object.create) && nativeCreate,
+        nativeIsArray = isNative(nativeIsArray = Array.isArray) && nativeIsArray,
+        nativeIsFinite = context.isFinite,
+        nativeIsNaN = context.isNaN,
+        nativeKeys = isNative(nativeKeys = Object.keys) && nativeKeys,
+        nativeMax = Math.max,
+        nativeMin = Math.min,
+        nativeParseInt = context.parseInt,
+        nativeRandom = Math.random;
+
+    /** Used to lookup a built-in constructor by [[Class]] */
+    var ctorByClass = {};
+    ctorByClass[arrayClass] = Array;
+    ctorByClass[boolClass] = Boolean;
+    ctorByClass[dateClass] = Date;
+    ctorByClass[funcClass] = Function;
+    ctorByClass[objectClass] = Object;
+    ctorByClass[numberClass] = Number;
+    ctorByClass[regexpClass] = RegExp;
+    ctorByClass[stringClass] = String;
+
+    /** Used to avoid iterating non-enumerable properties in IE < 9 */
+    var nonEnumProps = {};
+    nonEnumProps[arrayClass] = nonEnumProps[dateClass] = nonEnumProps[numberClass] = { 'constructor': true, 'toLocaleString': true, 'toString': true, 'valueOf': true };
+    nonEnumProps[boolClass] = nonEnumProps[stringClass] = { 'constructor': true, 'toString': true, 'valueOf': true };
+    nonEnumProps[errorClass] = nonEnumProps[funcClass] = nonEnumProps[regexpClass] = { 'constructor': true, 'toString': true };
+    nonEnumProps[objectClass] = { 'constructor': true };
+
+    (function() {
+      var length = shadowedProps.length;
+      while (length--) {
+        var key = shadowedProps[length];
+        for (var className in nonEnumProps) {
+          if (hasOwnProperty.call(nonEnumProps, className) && !hasOwnProperty.call(nonEnumProps[className], key)) {
+            nonEnumProps[className][key] = false;
+          }
+        }
+      }
+    }());
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Creates a `lodash` object which wraps the given value to enable intuitive
+     * method chaining.
+     *
+     * In addition to Lo-Dash methods, wrappers also have the following `Array` methods:
+     * `concat`, `join`, `pop`, `push`, `reverse`, `shift`, `slice`, `sort`, `splice`,
+     * and `unshift`
+     *
+     * Chaining is supported in custom builds as long as the `value` method is
+     * implicitly or explicitly included in the build.
+     *
+     * The chainable wrapper functions are:
+     * `after`, `assign`, `bind`, `bindAll`, `bindKey`, `chain`, `compact`,
+     * `compose`, `concat`, `countBy`, `create`, `createCallback`, `curry`,
+     * `debounce`, `defaults`, `defer`, `delay`, `difference`, `filter`, `flatten`,
+     * `forEach`, `forEachRight`, `forIn`, `forInRight`, `forOwn`, `forOwnRight`,
+     * `functions`, `groupBy`, `indexBy`, `initial`, `intersection`, `invert`,
+     * `invoke`, `keys`, `map`, `max`, `memoize`, `merge`, `min`, `object`, `omit`,
+     * `once`, `pairs`, `partial`, `partialRight`, `pick`, `pluck`, `pull`, `push`,
+     * `range`, `reject`, `remove`, `rest`, `reverse`, `shuffle`, `slice`, `sort`,
+     * `sortBy`, `splice`, `tap`, `throttle`, `times`, `toArray`, `transform`,
+     * `union`, `uniq`, `unshift`, `unzip`, `values`, `where`, `without`, `wrap`,
+     * and `zip`
+     *
+     * The non-chainable wrapper functions are:
+     * `clone`, `cloneDeep`, `contains`, `escape`, `every`, `find`, `findIndex`,
+     * `findKey`, `findLast`, `findLastIndex`, `findLastKey`, `has`, `identity`,
+     * `indexOf`, `isArguments`, `isArray`, `isBoolean`, `isDate`, `isElement`,
+     * `isEmpty`, `isEqual`, `isFinite`, `isFunction`, `isNaN`, `isNull`, `isNumber`,
+     * `isObject`, `isPlainObject`, `isRegExp`, `isString`, `isUndefined`, `join`,
+     * `lastIndexOf`, `mixin`, `noConflict`, `parseInt`, `pop`, `random`, `reduce`,
+     * `reduceRight`, `result`, `shift`, `size`, `some`, `sortedIndex`, `runInContext`,
+     * `template`, `unescape`, `uniqueId`, and `value`
+     *
+     * The wrapper functions `first` and `last` return wrapped values when `n` is
+     * provided, otherwise they return unwrapped values.
+     *
+     * Explicit chaining can be enabled by using the `_.chain` method.
+     *
+     * @name _
+     * @constructor
+     * @category Chaining
+     * @param {*} value The value to wrap in a `lodash` instance.
+     * @returns {Object} Returns a `lodash` instance.
+     * @example
+     *
+     * var wrapped = _([1, 2, 3]);
+     *
+     * // returns an unwrapped value
+     * wrapped.reduce(function(sum, num) {
+     *   return sum + num;
+     * });
+     * // => 6
+     *
+     * // returns a wrapped value
+     * var squares = wrapped.map(function(num) {
+     *   return num * num;
+     * });
+     *
+     * _.isArray(squares);
+     * // => false
+     *
+     * _.isArray(squares.value());
+     * // => true
+     */
+    function lodash(value) {
+      // don't wrap if already wrapped, even if wrapped by a different `lodash` constructor
+      return (value && typeof value == 'object' && !isArray(value) && hasOwnProperty.call(value, '__wrapped__'))
+       ? value
+       : new lodashWrapper(value);
+    }
+
+    /**
+     * A fast path for creating `lodash` wrapper objects.
+     *
+     * @private
+     * @param {*} value The value to wrap in a `lodash` instance.
+     * @param {boolean} chainAll A flag to enable chaining for all methods
+     * @returns {Object} Returns a `lodash` instance.
+     */
+    function lodashWrapper(value, chainAll) {
+      this.__chain__ = !!chainAll;
+      this.__wrapped__ = value;
+    }
+    // ensure `new lodashWrapper` is an instance of `lodash`
+    lodashWrapper.prototype = lodash.prototype;
+
+    /**
+     * An object used to flag environments features.
+     *
+     * @static
+     * @memberOf _
+     * @type Object
+     */
+    var support = lodash.support = {};
+
+    (function() {
+      var ctor = function() { this.x = 1; },
+          object = { '0': 1, 'length': 1 },
+          props = [];
+
+      ctor.prototype = { 'valueOf': 1, 'y': 1 };
+      for (var key in new ctor) { props.push(key); }
+      for (key in arguments) { }
+
+      /**
+       * Detect if an `arguments` object's [[Class]] is resolvable (all but Firefox < 4, IE < 9).
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.argsClass = toString.call(arguments) == argsClass;
+
+      /**
+       * Detect if `arguments` objects are `Object` objects (all but Narwhal and Opera < 10.5).
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.argsObject = arguments.constructor == Object && !(arguments instanceof Array);
+
+      /**
+       * Detect if `name` or `message` properties of `Error.prototype` are
+       * enumerable by default. (IE < 9, Safari < 5.1)
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.enumErrorProps = propertyIsEnumerable.call(errorProto, 'message') || propertyIsEnumerable.call(errorProto, 'name');
+
+      /**
+       * Detect if `prototype` properties are enumerable by default.
+       *
+       * Firefox < 3.6, Opera > 9.50 - Opera < 11.60, and Safari < 5.1
+       * (if the prototype or a property on the prototype has been set)
+       * incorrectly sets a function's `prototype` property [[Enumerable]]
+       * value to `true`.
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.enumPrototypes = propertyIsEnumerable.call(ctor, 'prototype');
+
+      /**
+       * Detect if functions can be decompiled by `Function#toString`
+       * (all but PS3 and older Opera mobile browsers & avoided in Windows 8 apps).
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.funcDecomp = !isNative(context.WinRTError) && reThis.test(runInContext);
+
+      /**
+       * Detect if `Function#name` is supported (all but IE).
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.funcNames = typeof Function.name == 'string';
+
+      /**
+       * Detect if `arguments` object indexes are non-enumerable
+       * (Firefox < 4, IE < 9, PhantomJS, Safari < 5.1).
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.nonEnumArgs = key != 0;
+
+      /**
+       * Detect if properties shadowing those on `Object.prototype` are non-enumerable.
+       *
+       * In IE < 9 an objects own properties, shadowing non-enumerable ones, are
+       * made non-enumerable as well (a.k.a the JScript [[DontEnum]] bug).
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.nonEnumShadows = !/valueOf/.test(props);
+
+      /**
+       * Detect if own properties are iterated after inherited properties (all but IE < 9).
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.ownLast = props[0] != 'x';
+
+      /**
+       * Detect if `Array#shift` and `Array#splice` augment array-like objects correctly.
+       *
+       * Firefox < 10, IE compatibility mode, and IE < 9 have buggy Array `shift()`
+       * and `splice()` functions that fail to remove the last element, `value[0]`,
+       * of array-like objects even though the `length` property is set to `0`.
+       * The `shift()` method is buggy in IE 8 compatibility mode, while `splice()`
+       * is buggy regardless of mode in IE < 9 and buggy in compatibility mode in IE 9.
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.spliceObjects = (arrayRef.splice.call(object, 0, 1), !object[0]);
+
+      /**
+       * Detect lack of support for accessing string characters by index.
+       *
+       * IE < 8 can't access characters by index and IE 8 can only access
+       * characters by index on string literals.
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      support.unindexedChars = ('x'[0] + Object('x')[0]) != 'xx';
+
+      /**
+       * Detect if a DOM node's [[Class]] is resolvable (all but IE < 9)
+       * and that the JS engine errors when attempting to coerce an object to
+       * a string without a `toString` function.
+       *
+       * @memberOf _.support
+       * @type boolean
+       */
+      try {
+        support.nodeClass = !(toString.call(document) == objectClass && !({ 'toString': 0 } + ''));
+      } catch(e) {
+        support.nodeClass = true;
+      }
+    }(1));
+
+    /**
+     * By default, the template delimiters used by Lo-Dash are similar to those in
+     * embedded Ruby (ERB). Change the following template settings to use alternative
+     * delimiters.
+     *
+     * @static
+     * @memberOf _
+     * @type Object
+     */
+    lodash.templateSettings = {
+
+      /**
+       * Used to detect `data` property values to be HTML-escaped.
+       *
+       * @memberOf _.templateSettings
+       * @type RegExp
+       */
+      'escape': /<%-([\s\S]+?)%>/g,
+
+      /**
+       * Used to detect code to be evaluated.
+       *
+       * @memberOf _.templateSettings
+       * @type RegExp
+       */
+      'evaluate': /<%([\s\S]+?)%>/g,
+
+      /**
+       * Used to detect `data` property values to inject.
+       *
+       * @memberOf _.templateSettings
+       * @type RegExp
+       */
+      'interpolate': reInterpolate,
+
+      /**
+       * Used to reference the data object in the template text.
+       *
+       * @memberOf _.templateSettings
+       * @type string
+       */
+      'variable': '',
+
+      /**
+       * Used to import variables into the compiled template.
+       *
+       * @memberOf _.templateSettings
+       * @type Object
+       */
+      'imports': {
+
+        /**
+         * A reference to the `lodash` function.
+         *
+         * @memberOf _.templateSettings.imports
+         * @type Function
+         */
+        '_': lodash
+      }
+    };
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * The template used to create iterator functions.
+     *
+     * @private
+     * @param {Object} data The data object used to populate the text.
+     * @returns {string} Returns the interpolated text.
+     */
+    var iteratorTemplate = function(obj) {
+
+      var __p = 'var index, iterable = ' +
+      (obj.firstArg) +
+      ', result = ' +
+      (obj.init) +
+      ';\nif (!iterable) return result;\n' +
+      (obj.top) +
+      ';';
+       if (obj.array) {
+      __p += '\nvar length = iterable.length; index = -1;\nif (' +
+      (obj.array) +
+      ') {  ';
+       if (support.unindexedChars) {
+      __p += '\n  if (isString(iterable)) {\n    iterable = iterable.split(\'\')\n  }  ';
+       }
+      __p += '\n  while (++index < length) {\n    ' +
+      (obj.loop) +
+      ';\n  }\n}\nelse {  ';
+       } else if (support.nonEnumArgs) {
+      __p += '\n  var length = iterable.length; index = -1;\n  if (length && isArguments(iterable)) {\n    while (++index < length) {\n      index += \'\';\n      ' +
+      (obj.loop) +
+      ';\n    }\n  } else {  ';
+       }
+
+       if (support.enumPrototypes) {
+      __p += '\n  var skipProto = typeof iterable == \'function\';\n  ';
+       }
+
+       if (support.enumErrorProps) {
+      __p += '\n  var skipErrorProps = iterable === errorProto || iterable instanceof Error;\n  ';
+       }
+
+          var conditions = [];    if (support.enumPrototypes) { conditions.push('!(skipProto && index == "prototype")'); }    if (support.enumErrorProps)  { conditions.push('!(skipErrorProps && (index == "message" || index == "name"))'); }
+
+       if (obj.useHas && obj.keys) {
+      __p += '\n  var ownIndex = -1,\n      ownProps = objectTypes[typeof iterable] && keys(iterable),\n      length = ownProps ? ownProps.length : 0;\n\n  while (++ownIndex < length) {\n    index = ownProps[ownIndex];\n';
+          if (conditions.length) {
+      __p += '    if (' +
+      (conditions.join(' && ')) +
+      ') {\n  ';
+       }
+      __p +=
+      (obj.loop) +
+      ';    ';
+       if (conditions.length) {
+      __p += '\n    }';
+       }
+      __p += '\n  }  ';
+       } else {
+      __p += '\n  for (index in iterable) {\n';
+          if (obj.useHas) { conditions.push("hasOwnProperty.call(iterable, index)"); }    if (conditions.length) {
+      __p += '    if (' +
+      (conditions.join(' && ')) +
+      ') {\n  ';
+       }
+      __p +=
+      (obj.loop) +
+      ';    ';
+       if (conditions.length) {
+      __p += '\n    }';
+       }
+      __p += '\n  }    ';
+       if (support.nonEnumShadows) {
+      __p += '\n\n  if (iterable !== objectProto) {\n    var ctor = iterable.constructor,\n        isProto = iterable === (ctor && ctor.prototype),\n        className = iterable === stringProto ? stringClass : iterable === errorProto ? errorClass : toString.call(iterable),\n        nonEnum = nonEnumProps[className];\n      ';
+       for (k = 0; k < 7; k++) {
+      __p += '\n    index = \'' +
+      (obj.shadowedProps[k]) +
+      '\';\n    if ((!(isProto && nonEnum[index]) && hasOwnProperty.call(iterable, index))';
+              if (!obj.useHas) {
+      __p += ' || (!nonEnum[index] && iterable[index] !== objectProto[index])';
+       }
+      __p += ') {\n      ' +
+      (obj.loop) +
+      ';\n    }      ';
+       }
+      __p += '\n  }    ';
+       }
+
+       }
+
+       if (obj.array || support.nonEnumArgs) {
+      __p += '\n}';
+       }
+      __p +=
+      (obj.bottom) +
+      ';\nreturn result';
+
+      return __p
+    };
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * The base implementation of `_.bind` that creates the bound function and
+     * sets its meta data.
+     *
+     * @private
+     * @param {Array} bindData The bind data array.
+     * @returns {Function} Returns the new bound function.
+     */
+    function baseBind(bindData) {
+      var func = bindData[0],
+          partialArgs = bindData[2],
+          thisArg = bindData[4];
+
+      function bound() {
+        // `Function#bind` spec
+        // http://es5.github.io/#x15.3.4.5
+        if (partialArgs) {
+          // avoid `arguments` object deoptimizations by using `slice` instead
+          // of `Array.prototype.slice.call` and not assigning `arguments` to a
+          // variable as a ternary expression
+          var args = slice(partialArgs);
+          push.apply(args, arguments);
+        }
+        // mimic the constructor's `return` behavior
+        // http://es5.github.io/#x13.2.2
+        if (this instanceof bound) {
+          // ensure `new bound` is an instance of `func`
+          var thisBinding = baseCreate(func.prototype),
+              result = func.apply(thisBinding, args || arguments);
+          return isObject(result) ? result : thisBinding;
+        }
+        return func.apply(thisArg, args || arguments);
+      }
+      setBindData(bound, bindData);
+      return bound;
+    }
+
+    /**
+     * The base implementation of `_.clone` without argument juggling or support
+     * for `thisArg` binding.
+     *
+     * @private
+     * @param {*} value The value to clone.
+     * @param {boolean} [isDeep=false] Specify a deep clone.
+     * @param {Function} [callback] The function to customize cloning values.
+     * @param {Array} [stackA=[]] Tracks traversed source objects.
+     * @param {Array} [stackB=[]] Associates clones with source counterparts.
+     * @returns {*} Returns the cloned value.
+     */
+    function baseClone(value, isDeep, callback, stackA, stackB) {
+      if (callback) {
+        var result = callback(value);
+        if (typeof result != 'undefined') {
+          return result;
+        }
+      }
+      // inspect [[Class]]
+      var isObj = isObject(value);
+      if (isObj) {
+        var className = toString.call(value);
+        if (!cloneableClasses[className] || (!support.nodeClass && isNode(value))) {
+          return value;
+        }
+        var ctor = ctorByClass[className];
+        switch (className) {
+          case boolClass:
+          case dateClass:
+            return new ctor(+value);
+
+          case numberClass:
+          case stringClass:
+            return new ctor(value);
+
+          case regexpClass:
+            result = ctor(value.source, reFlags.exec(value));
+            result.lastIndex = value.lastIndex;
+            return result;
+        }
+      } else {
+        return value;
+      }
+      var isArr = isArray(value);
+      if (isDeep) {
+        // check for circular references and return corresponding clone
+        var initedStack = !stackA;
+        stackA || (stackA = getArray());
+        stackB || (stackB = getArray());
+
+        var length = stackA.length;
+        while (length--) {
+          if (stackA[length] == value) {
+            return stackB[length];
+          }
+        }
+        result = isArr ? ctor(value.length) : {};
+      }
+      else {
+        result = isArr ? slice(value) : assign({}, value);
+      }
+      // add array properties assigned by `RegExp#exec`
+      if (isArr) {
+        if (hasOwnProperty.call(value, 'index')) {
+          result.index = value.index;
+        }
+        if (hasOwnProperty.call(value, 'input')) {
+          result.input = value.input;
+        }
+      }
+      // exit for shallow clone
+      if (!isDeep) {
+        return result;
+      }
+      // add the source value to the stack of traversed objects
+      // and associate it with its clone
+      stackA.push(value);
+      stackB.push(result);
+
+      // recursively populate clone (susceptible to call stack limits)
+      (isArr ? baseEach : forOwn)(value, function(objValue, key) {
+        result[key] = baseClone(objValue, isDeep, callback, stackA, stackB);
+      });
+
+      if (initedStack) {
+        releaseArray(stackA);
+        releaseArray(stackB);
+      }
+      return result;
+    }
+
+    /**
+     * The base implementation of `_.create` without support for assigning
+     * properties to the created object.
+     *
+     * @private
+     * @param {Object} prototype The object to inherit from.
+     * @returns {Object} Returns the new object.
+     */
+    function baseCreate(prototype, properties) {
+      return isObject(prototype) ? nativeCreate(prototype) : {};
+    }
+    // fallback for browsers without `Object.create`
+    if (!nativeCreate) {
+      baseCreate = (function() {
+        function Object() {}
+        return function(prototype) {
+          if (isObject(prototype)) {
+            Object.prototype = prototype;
+            var result = new Object;
+            Object.prototype = null;
+          }
+          return result || context.Object();
+        };
+      }());
+    }
+
+    /**
+     * The base implementation of `_.createCallback` without support for creating
+     * "_.pluck" or "_.where" style callbacks.
+     *
+     * @private
+     * @param {*} [func=identity] The value to convert to a callback.
+     * @param {*} [thisArg] The `this` binding of the created callback.
+     * @param {number} [argCount] The number of arguments the callback accepts.
+     * @returns {Function} Returns a callback function.
+     */
+    function baseCreateCallback(func, thisArg, argCount) {
+      if (typeof func != 'function') {
+        return identity;
+      }
+      // exit early for no `thisArg` or already bound by `Function#bind`
+      if (typeof thisArg == 'undefined' || !('prototype' in func)) {
+        return func;
+      }
+      var bindData = func.__bindData__;
+      if (typeof bindData == 'undefined') {
+        if (support.funcNames) {
+          bindData = !func.name;
+        }
+        bindData = bindData || !support.funcDecomp;
+        if (!bindData) {
+          var source = fnToString.call(func);
+          if (!support.funcNames) {
+            bindData = !reFuncName.test(source);
+          }
+          if (!bindData) {
+            // checks if `func` references the `this` keyword and stores the result
+            bindData = reThis.test(source);
+            setBindData(func, bindData);
+          }
+        }
+      }
+      // exit early if there are no `this` references or `func` is bound
+      if (bindData === false || (bindData !== true && bindData[1] & 1)) {
+        return func;
+      }
+      switch (argCount) {
+        case 1: return function(value) {
+          return func.call(thisArg, value);
+        };
+        case 2: return function(a, b) {
+          return func.call(thisArg, a, b);
+        };
+        case 3: return function(value, index, collection) {
+          return func.call(thisArg, value, index, collection);
+        };
+        case 4: return function(accumulator, value, index, collection) {
+          return func.call(thisArg, accumulator, value, index, collection);
+        };
+      }
+      return bind(func, thisArg);
+    }
+
+    /**
+     * The base implementation of `createWrapper` that creates the wrapper and
+     * sets its meta data.
+     *
+     * @private
+     * @param {Array} bindData The bind data array.
+     * @returns {Function} Returns the new function.
+     */
+    function baseCreateWrapper(bindData) {
+      var func = bindData[0],
+          bitmask = bindData[1],
+          partialArgs = bindData[2],
+          partialRightArgs = bindData[3],
+          thisArg = bindData[4],
+          arity = bindData[5];
+
+      var isBind = bitmask & 1,
+          isBindKey = bitmask & 2,
+          isCurry = bitmask & 4,
+          isCurryBound = bitmask & 8,
+          key = func;
+
+      function bound() {
+        var thisBinding = isBind ? thisArg : this;
+        if (partialArgs) {
+          var args = slice(partialArgs);
+          push.apply(args, arguments);
+        }
+        if (partialRightArgs || isCurry) {
+          args || (args = slice(arguments));
+          if (partialRightArgs) {
+            push.apply(args, partialRightArgs);
+          }
+          if (isCurry && args.length < arity) {
+            bitmask |= 16 & ~32;
+            return baseCreateWrapper([func, (isCurryBound ? bitmask : bitmask & ~3), args, null, thisArg, arity]);
+          }
+        }
+        args || (args = arguments);
+        if (isBindKey) {
+          func = thisBinding[key];
+        }
+        if (this instanceof bound) {
+          thisBinding = baseCreate(func.prototype);
+          var result = func.apply(thisBinding, args);
+          return isObject(result) ? result : thisBinding;
+        }
+        return func.apply(thisBinding, args);
+      }
+      setBindData(bound, bindData);
+      return bound;
+    }
+
+    /**
+     * The base implementation of `_.difference` that accepts a single array
+     * of values to exclude.
+     *
+     * @private
+     * @param {Array} array The array to process.
+     * @param {Array} [values] The array of values to exclude.
+     * @returns {Array} Returns a new array of filtered values.
+     */
+    function baseDifference(array, values) {
+      var index = -1,
+          indexOf = getIndexOf(),
+          length = array ? array.length : 0,
+          isLarge = length >= largeArraySize && indexOf === baseIndexOf,
+          result = [];
+
+      if (isLarge) {
+        var cache = createCache(values);
+        if (cache) {
+          indexOf = cacheIndexOf;
+          values = cache;
+        } else {
+          isLarge = false;
+        }
+      }
+      while (++index < length) {
+        var value = array[index];
+        if (indexOf(values, value) < 0) {
+          result.push(value);
+        }
+      }
+      if (isLarge) {
+        releaseObject(values);
+      }
+      return result;
+    }
+
+    /**
+     * The base implementation of `_.flatten` without support for callback
+     * shorthands or `thisArg` binding.
+     *
+     * @private
+     * @param {Array} array The array to flatten.
+     * @param {boolean} [isShallow=false] A flag to restrict flattening to a single level.
+     * @param {boolean} [isStrict=false] A flag to restrict flattening to arrays and `arguments` objects.
+     * @param {number} [fromIndex=0] The index to start from.
+     * @returns {Array} Returns a new flattened array.
+     */
+    function baseFlatten(array, isShallow, isStrict, fromIndex) {
+      var index = (fromIndex || 0) - 1,
+          length = array ? array.length : 0,
+          result = [];
+
+      while (++index < length) {
+        var value = array[index];
+
+        if (value && typeof value == 'object' && typeof value.length == 'number'
+            && (isArray(value) || isArguments(value))) {
+          // recursively flatten arrays (susceptible to call stack limits)
+          if (!isShallow) {
+            value = baseFlatten(value, isShallow, isStrict);
+          }
+          var valIndex = -1,
+              valLength = value.length,
+              resIndex = result.length;
+
+          result.length += valLength;
+          while (++valIndex < valLength) {
+            result[resIndex++] = value[valIndex];
+          }
+        } else if (!isStrict) {
+          result.push(value);
+        }
+      }
+      return result;
+    }
+
+    /**
+     * The base implementation of `_.isEqual`, without support for `thisArg` binding,
+     * that allows partial "_.where" style comparisons.
+     *
+     * @private
+     * @param {*} a The value to compare.
+     * @param {*} b The other value to compare.
+     * @param {Function} [callback] The function to customize comparing values.
+     * @param {Function} [isWhere=false] A flag to indicate performing partial comparisons.
+     * @param {Array} [stackA=[]] Tracks traversed `a` objects.
+     * @param {Array} [stackB=[]] Tracks traversed `b` objects.
+     * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+     */
+    function baseIsEqual(a, b, callback, isWhere, stackA, stackB) {
+      // used to indicate that when comparing objects, `a` has at least the properties of `b`
+      if (callback) {
+        var result = callback(a, b);
+        if (typeof result != 'undefined') {
+          return !!result;
+        }
+      }
+      // exit early for identical values
+      if (a === b) {
+        // treat `+0` vs. `-0` as not equal
+        return a !== 0 || (1 / a == 1 / b);
+      }
+      var type = typeof a,
+          otherType = typeof b;
+
+      // exit early for unlike primitive values
+      if (a === a &&
+          !(a && objectTypes[type]) &&
+          !(b && objectTypes[otherType])) {
+        return false;
+      }
+      // exit early for `null` and `undefined` avoiding ES3's Function#call behavior
+      // http://es5.github.io/#x15.3.4.4
+      if (a == null || b == null) {
+        return a === b;
+      }
+      // compare [[Class]] names
+      var className = toString.call(a),
+          otherClass = toString.call(b);
+
+      if (className == argsClass) {
+        className = objectClass;
+      }
+      if (otherClass == argsClass) {
+        otherClass = objectClass;
+      }
+      if (className != otherClass) {
+        return false;
+      }
+      switch (className) {
+        case boolClass:
+        case dateClass:
+          // coerce dates and booleans to numbers, dates to milliseconds and booleans
+          // to `1` or `0` treating invalid dates coerced to `NaN` as not equal
+          return +a == +b;
+
+        case numberClass:
+          // treat `NaN` vs. `NaN` as equal
+          return (a != +a)
+            ? b != +b
+            // but treat `+0` vs. `-0` as not equal
+            : (a == 0 ? (1 / a == 1 / b) : a == +b);
+
+        case regexpClass:
+        case stringClass:
+          // coerce regexes to strings (http://es5.github.io/#x15.10.6.4)
+          // treat string primitives and their corresponding object instances as equal
+          return a == String(b);
+      }
+      var isArr = className == arrayClass;
+      if (!isArr) {
+        // unwrap any `lodash` wrapped values
+        var aWrapped = hasOwnProperty.call(a, '__wrapped__'),
+            bWrapped = hasOwnProperty.call(b, '__wrapped__');
+
+        if (aWrapped || bWrapped) {
+          return baseIsEqual(aWrapped ? a.__wrapped__ : a, bWrapped ? b.__wrapped__ : b, callback, isWhere, stackA, stackB);
+        }
+        // exit for functions and DOM nodes
+        if (className != objectClass || (!support.nodeClass && (isNode(a) || isNode(b)))) {
+          return false;
+        }
+        // in older versions of Opera, `arguments` objects have `Array` constructors
+        var ctorA = !support.argsObject && isArguments(a) ? Object : a.constructor,
+            ctorB = !support.argsObject && isArguments(b) ? Object : b.constructor;
+
+        // non `Object` object instances with different constructors are not equal
+        if (ctorA != ctorB &&
+              !(isFunction(ctorA) && ctorA instanceof ctorA && isFunction(ctorB) && ctorB instanceof ctorB) &&
+              ('constructor' in a && 'constructor' in b)
+            ) {
+          return false;
+        }
+      }
+      // assume cyclic structures are equal
+      // the algorithm for detecting cyclic structures is adapted from ES 5.1
+      // section 15.12.3, abstract operation `JO` (http://es5.github.io/#x15.12.3)
+      var initedStack = !stackA;
+      stackA || (stackA = getArray());
+      stackB || (stackB = getArray());
+
+      var length = stackA.length;
+      while (length--) {
+        if (stackA[length] == a) {
+          return stackB[length] == b;
+        }
+      }
+      var size = 0;
+      result = true;
+
+      // add `a` and `b` to the stack of traversed objects
+      stackA.push(a);
+      stackB.push(b);
+
+      // recursively compare objects and arrays (susceptible to call stack limits)
+      if (isArr) {
+        // compare lengths to determine if a deep comparison is necessary
+        length = a.length;
+        size = b.length;
+        result = size == length;
+
+        if (result || isWhere) {
+          // deep compare the contents, ignoring non-numeric properties
+          while (size--) {
+            var index = length,
+                value = b[size];
+
+            if (isWhere) {
+              while (index--) {
+                if ((result = baseIsEqual(a[index], value, callback, isWhere, stackA, stackB))) {
+                  break;
+                }
+              }
+            } else if (!(result = baseIsEqual(a[size], value, callback, isWhere, stackA, stackB))) {
+              break;
+            }
+          }
+        }
+      }
+      else {
+        // deep compare objects using `forIn`, instead of `forOwn`, to avoid `Object.keys`
+        // which, in this case, is more costly
+        forIn(b, function(value, key, b) {
+          if (hasOwnProperty.call(b, key)) {
+            // count the number of properties.
+            size++;
+            // deep compare each property value.
+            return (result = hasOwnProperty.call(a, key) && baseIsEqual(a[key], value, callback, isWhere, stackA, stackB));
+          }
+        });
+
+        if (result && !isWhere) {
+          // ensure both objects have the same number of properties
+          forIn(a, function(value, key, a) {
+            if (hasOwnProperty.call(a, key)) {
+              // `size` will be `-1` if `a` has more properties than `b`
+              return (result = --size > -1);
+            }
+          });
+        }
+      }
+      stackA.pop();
+      stackB.pop();
+
+      if (initedStack) {
+        releaseArray(stackA);
+        releaseArray(stackB);
+      }
+      return result;
+    }
+
+    /**
+     * The base implementation of `_.merge` without argument juggling or support
+     * for `thisArg` binding.
+     *
+     * @private
+     * @param {Object} object The destination object.
+     * @param {Object} source The source object.
+     * @param {Function} [callback] The function to customize merging properties.
+     * @param {Array} [stackA=[]] Tracks traversed source objects.
+     * @param {Array} [stackB=[]] Associates values with source counterparts.
+     */
+    function baseMerge(object, source, callback, stackA, stackB) {
+      (isArray(source) ? forEach : forOwn)(source, function(source, key) {
+        var found,
+            isArr,
+            result = source,
+            value = object[key];
+
+        if (source && ((isArr = isArray(source)) || isPlainObject(source))) {
+          // avoid merging previously merged cyclic sources
+          var stackLength = stackA.length;
+          while (stackLength--) {
+            if ((found = stackA[stackLength] == source)) {
+              value = stackB[stackLength];
+              break;
+            }
+          }
+          if (!found) {
+            var isShallow;
+            if (callback) {
+              result = callback(value, source);
+              if ((isShallow = typeof result != 'undefined')) {
+                value = result;
+              }
+            }
+            if (!isShallow) {
+              value = isArr
+                ? (isArray(value) ? value : [])
+                : (isPlainObject(value) ? value : {});
+            }
+            // add `source` and associated `value` to the stack of traversed objects
+            stackA.push(source);
+            stackB.push(value);
+
+            // recursively merge objects and arrays (susceptible to call stack limits)
+            if (!isShallow) {
+              baseMerge(value, source, callback, stackA, stackB);
+            }
+          }
+        }
+        else {
+          if (callback) {
+            result = callback(value, source);
+            if (typeof result == 'undefined') {
+              result = source;
+            }
+          }
+          if (typeof result != 'undefined') {
+            value = result;
+          }
+        }
+        object[key] = value;
+      });
+    }
+
+    /**
+     * The base implementation of `_.random` without argument juggling or support
+     * for returning floating-point numbers.
+     *
+     * @private
+     * @param {number} min The minimum possible value.
+     * @param {number} max The maximum possible value.
+     * @returns {number} Returns a random number.
+     */
+    function baseRandom(min, max) {
+      return min + floor(nativeRandom() * (max - min + 1));
+    }
+
+    /**
+     * The base implementation of `_.uniq` without support for callback shorthands
+     * or `thisArg` binding.
+     *
+     * @private
+     * @param {Array} array The array to process.
+     * @param {boolean} [isSorted=false] A flag to indicate that `array` is sorted.
+     * @param {Function} [callback] The function called per iteration.
+     * @returns {Array} Returns a duplicate-value-free array.
+     */
+    function baseUniq(array, isSorted, callback) {
+      var index = -1,
+          indexOf = getIndexOf(),
+          length = array ? array.length : 0,
+          result = [];
+
+      var isLarge = !isSorted && length >= largeArraySize && indexOf === baseIndexOf,
+          seen = (callback || isLarge) ? getArray() : result;
+
+      if (isLarge) {
+        var cache = createCache(seen);
+        indexOf = cacheIndexOf;
+        seen = cache;
+      }
+      while (++index < length) {
+        var value = array[index],
+            computed = callback ? callback(value, index, array) : value;
+
+        if (isSorted
+              ? !index || seen[seen.length - 1] !== computed
+              : indexOf(seen, computed) < 0
+            ) {
+          if (callback || isLarge) {
+            seen.push(computed);
+          }
+          result.push(value);
+        }
+      }
+      if (isLarge) {
+        releaseArray(seen.array);
+        releaseObject(seen);
+      } else if (callback) {
+        releaseArray(seen);
+      }
+      return result;
+    }
+
+    /**
+     * Creates a function that aggregates a collection, creating an object composed
+     * of keys generated from the results of running each element of the collection
+     * through a callback. The given `setter` function sets the keys and values
+     * of the composed object.
+     *
+     * @private
+     * @param {Function} setter The setter function.
+     * @returns {Function} Returns the new aggregator function.
+     */
+    function createAggregator(setter) {
+      return function(collection, callback, thisArg) {
+        var result = {};
+        callback = lodash.createCallback(callback, thisArg, 3);
+
+        if (isArray(collection)) {
+          var index = -1,
+              length = collection.length;
+
+          while (++index < length) {
+            var value = collection[index];
+            setter(result, value, callback(value, index, collection), collection);
+          }
+        } else {
+          baseEach(collection, function(value, key, collection) {
+            setter(result, value, callback(value, key, collection), collection);
+          });
+        }
+        return result;
+      };
+    }
+
+    /**
+     * Creates a function that, when called, either curries or invokes `func`
+     * with an optional `this` binding and partially applied arguments.
+     *
+     * @private
+     * @param {Function|string} func The function or method name to reference.
+     * @param {number} bitmask The bitmask of method flags to compose.
+     *  The bitmask may be composed of the following flags:
+     *  1 - `_.bind`
+     *  2 - `_.bindKey`
+     *  4 - `_.curry`
+     *  8 - `_.curry` (bound)
+     *  16 - `_.partial`
+     *  32 - `_.partialRight`
+     * @param {Array} [partialArgs] An array of arguments to prepend to those
+     *  provided to the new function.
+     * @param {Array} [partialRightArgs] An array of arguments to append to those
+     *  provided to the new function.
+     * @param {*} [thisArg] The `this` binding of `func`.
+     * @param {number} [arity] The arity of `func`.
+     * @returns {Function} Returns the new function.
+     */
+    function createWrapper(func, bitmask, partialArgs, partialRightArgs, thisArg, arity) {
+      var isBind = bitmask & 1,
+          isBindKey = bitmask & 2,
+          isCurry = bitmask & 4,
+          isCurryBound = bitmask & 8,
+          isPartial = bitmask & 16,
+          isPartialRight = bitmask & 32;
+
+      if (!isBindKey && !isFunction(func)) {
+        throw new TypeError;
+      }
+      if (isPartial && !partialArgs.length) {
+        bitmask &= ~16;
+        isPartial = partialArgs = false;
+      }
+      if (isPartialRight && !partialRightArgs.length) {
+        bitmask &= ~32;
+        isPartialRight = partialRightArgs = false;
+      }
+      var bindData = func && func.__bindData__;
+      if (bindData && bindData !== true) {
+        // clone `bindData`
+        bindData = slice(bindData);
+        if (bindData[2]) {
+          bindData[2] = slice(bindData[2]);
+        }
+        if (bindData[3]) {
+          bindData[3] = slice(bindData[3]);
+        }
+        // set `thisBinding` is not previously bound
+        if (isBind && !(bindData[1] & 1)) {
+          bindData[4] = thisArg;
+        }
+        // set if previously bound but not currently (subsequent curried functions)
+        if (!isBind && bindData[1] & 1) {
+          bitmask |= 8;
+        }
+        // set curried arity if not yet set
+        if (isCurry && !(bindData[1] & 4)) {
+          bindData[5] = arity;
+        }
+        // append partial left arguments
+        if (isPartial) {
+          push.apply(bindData[2] || (bindData[2] = []), partialArgs);
+        }
+        // append partial right arguments
+        if (isPartialRight) {
+          unshift.apply(bindData[3] || (bindData[3] = []), partialRightArgs);
+        }
+        // merge flags
+        bindData[1] |= bitmask;
+        return createWrapper.apply(null, bindData);
+      }
+      // fast path for `_.bind`
+      var creater = (bitmask == 1 || bitmask === 17) ? baseBind : baseCreateWrapper;
+      return creater([func, bitmask, partialArgs, partialRightArgs, thisArg, arity]);
+    }
+
+    /**
+     * Creates compiled iteration functions.
+     *
+     * @private
+     * @param {...Object} [options] The compile options object(s).
+     * @param {string} [options.array] Code to determine if the iterable is an array or array-like.
+     * @param {boolean} [options.useHas] Specify using `hasOwnProperty` checks in the object loop.
+     * @param {Function} [options.keys] A reference to `_.keys` for use in own property iteration.
+     * @param {string} [options.args] A comma separated string of iteration function arguments.
+     * @param {string} [options.top] Code to execute before the iteration branches.
+     * @param {string} [options.loop] Code to execute in the object loop.
+     * @param {string} [options.bottom] Code to execute after the iteration branches.
+     * @returns {Function} Returns the compiled function.
+     */
+    function createIterator() {
+      // data properties
+      iteratorData.shadowedProps = shadowedProps;
+
+      // iterator options
+      iteratorData.array = iteratorData.bottom = iteratorData.loop = iteratorData.top = '';
+      iteratorData.init = 'iterable';
+      iteratorData.useHas = true;
+
+      // merge options into a template data object
+      for (var object, index = 0; object = arguments[index]; index++) {
+        for (var key in object) {
+          iteratorData[key] = object[key];
+        }
+      }
+      var args = iteratorData.args;
+      iteratorData.firstArg = /^[^,]+/.exec(args)[0];
+
+      // create the function factory
+      var factory = Function(
+          'baseCreateCallback, errorClass, errorProto, hasOwnProperty, ' +
+          'indicatorObject, isArguments, isArray, isString, keys, objectProto, ' +
+          'objectTypes, nonEnumProps, stringClass, stringProto, toString',
+        'return function(' + args + ') {\n' + iteratorTemplate(iteratorData) + '\n}'
+      );
+
+      // return the compiled function
+      return factory(
+        baseCreateCallback, errorClass, errorProto, hasOwnProperty,
+        indicatorObject, isArguments, isArray, isString, iteratorData.keys, objectProto,
+        objectTypes, nonEnumProps, stringClass, stringProto, toString
+      );
+    }
+
+    /**
+     * Used by `escape` to convert characters to HTML entities.
+     *
+     * @private
+     * @param {string} match The matched character to escape.
+     * @returns {string} Returns the escaped character.
+     */
+    function escapeHtmlChar(match) {
+      return htmlEscapes[match];
+    }
+
+    /**
+     * Gets the appropriate "indexOf" function. If the `_.indexOf` method is
+     * customized, this method returns the custom method, otherwise it returns
+     * the `baseIndexOf` function.
+     *
+     * @private
+     * @returns {Function} Returns the "indexOf" function.
+     */
+    function getIndexOf() {
+      var result = (result = lodash.indexOf) === indexOf ? baseIndexOf : result;
+      return result;
+    }
+
+    /**
+     * Checks if `value` is a native function.
+     *
+     * @private
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a native function, else `false`.
+     */
+    function isNative(value) {
+      return typeof value == 'function' && reNative.test(value);
+    }
+
+    /**
+     * Sets `this` binding data on a given function.
+     *
+     * @private
+     * @param {Function} func The function to set data on.
+     * @param {Array} value The data array to set.
+     */
+    var setBindData = !defineProperty ? noop : function(func, value) {
+      descriptor.value = value;
+      defineProperty(func, '__bindData__', descriptor);
+    };
+
+    /**
+     * A fallback implementation of `isPlainObject` which checks if a given value
+     * is an object created by the `Object` constructor, assuming objects created
+     * by the `Object` constructor have no inherited enumerable properties and that
+     * there are no `Object.prototype` extensions.
+     *
+     * @private
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if `value` is a plain object, else `false`.
+     */
+    function shimIsPlainObject(value) {
+      var ctor,
+          result;
+
+      // avoid non Object objects, `arguments` objects, and DOM elements
+      if (!(value && toString.call(value) == objectClass) ||
+          (ctor = value.constructor, isFunction(ctor) && !(ctor instanceof ctor)) ||
+          (!support.argsClass && isArguments(value)) ||
+          (!support.nodeClass && isNode(value))) {
+        return false;
+      }
+      // IE < 9 iterates inherited properties before own properties. If the first
+      // iterated property is an object's own property then there are no inherited
+      // enumerable properties.
+      if (support.ownLast) {
+        forIn(value, function(value, key, object) {
+          result = hasOwnProperty.call(object, key);
+          return false;
+        });
+        return result !== false;
+      }
+      // In most environments an object's own properties are iterated before
+      // its inherited properties. If the last iterated property is an object's
+      // own property then there are no inherited enumerable properties.
+      forIn(value, function(value, key) {
+        result = key;
+      });
+      return typeof result == 'undefined' || hasOwnProperty.call(value, result);
+    }
+
+    /**
+     * Used by `unescape` to convert HTML entities to characters.
+     *
+     * @private
+     * @param {string} match The matched character to unescape.
+     * @returns {string} Returns the unescaped character.
+     */
+    function unescapeHtmlChar(match) {
+      return htmlUnescapes[match];
+    }
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Checks if `value` is an `arguments` object.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is an `arguments` object, else `false`.
+     * @example
+     *
+     * (function() { return _.isArguments(arguments); })(1, 2, 3);
+     * // => true
+     *
+     * _.isArguments([1, 2, 3]);
+     * // => false
+     */
+    function isArguments(value) {
+      return value && typeof value == 'object' && typeof value.length == 'number' &&
+        toString.call(value) == argsClass || false;
+    }
+    // fallback for browsers that can't detect `arguments` objects by [[Class]]
+    if (!support.argsClass) {
+      isArguments = function(value) {
+        return value && typeof value == 'object' && typeof value.length == 'number' &&
+          hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee') || false;
+      };
+    }
+
+    /**
+     * Checks if `value` is an array.
+     *
+     * @static
+     * @memberOf _
+     * @type Function
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is an array, else `false`.
+     * @example
+     *
+     * (function() { return _.isArray(arguments); })();
+     * // => false
+     *
+     * _.isArray([1, 2, 3]);
+     * // => true
+     */
+    var isArray = nativeIsArray || function(value) {
+      return value && typeof value == 'object' && typeof value.length == 'number' &&
+        toString.call(value) == arrayClass || false;
+    };
+
+    /**
+     * A fallback implementation of `Object.keys` which produces an array of the
+     * given object's own enumerable property names.
+     *
+     * @private
+     * @type Function
+     * @param {Object} object The object to inspect.
+     * @returns {Array} Returns an array of property names.
+     */
+    var shimKeys = createIterator({
+      'args': 'object',
+      'init': '[]',
+      'top': 'if (!(objectTypes[typeof object])) return result',
+      'loop': 'result.push(index)'
+    });
+
+    /**
+     * Creates an array composed of the own enumerable property names of an object.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to inspect.
+     * @returns {Array} Returns an array of property names.
+     * @example
+     *
+     * _.keys({ 'one': 1, 'two': 2, 'three': 3 });
+     * // => ['one', 'two', 'three'] (property order is not guaranteed across environments)
+     */
+    var keys = !nativeKeys ? shimKeys : function(object) {
+      if (!isObject(object)) {
+        return [];
+      }
+      if ((support.enumPrototypes && typeof object == 'function') ||
+          (support.nonEnumArgs && object.length && isArguments(object))) {
+        return shimKeys(object);
+      }
+      return nativeKeys(object);
+    };
+
+    /** Reusable iterator options shared by `each`, `forIn`, and `forOwn` */
+    var eachIteratorOptions = {
+      'args': 'collection, callback, thisArg',
+      'top': "callback = callback && typeof thisArg == 'undefined' ? callback : baseCreateCallback(callback, thisArg, 3)",
+      'array': "typeof length == 'number'",
+      'keys': keys,
+      'loop': 'if (callback(iterable[index], index, collection) === false) return result'
+    };
+
+    /** Reusable iterator options for `assign` and `defaults` */
+    var defaultsIteratorOptions = {
+      'args': 'object, source, guard',
+      'top':
+        'var args = arguments,\n' +
+        '    argsIndex = 0,\n' +
+        "    argsLength = typeof guard == 'number' ? 2 : args.length;\n" +
+        'while (++argsIndex < argsLength) {\n' +
+        '  iterable = args[argsIndex];\n' +
+        '  if (iterable && objectTypes[typeof iterable]) {',
+      'keys': keys,
+      'loop': "if (typeof result[index] == 'undefined') result[index] = iterable[index]",
+      'bottom': '  }\n}'
+    };
+
+    /** Reusable iterator options for `forIn` and `forOwn` */
+    var forOwnIteratorOptions = {
+      'top': 'if (!objectTypes[typeof iterable]) return result;\n' + eachIteratorOptions.top,
+      'array': false
+    };
+
+    /**
+     * Used to convert characters to HTML entities:
+     *
+     * Though the `>` character is escaped for symmetry, characters like `>` and `/`
+     * don't require escaping in HTML and have no special meaning unless they're part
+     * of a tag or an unquoted attribute value.
+     * http://mathiasbynens.be/notes/ambiguous-ampersands (under "semi-related fun fact")
+     */
+    var htmlEscapes = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+
+    /** Used to convert HTML entities to characters */
+    var htmlUnescapes = invert(htmlEscapes);
+
+    /** Used to match HTML entities and HTML characters */
+    var reEscapedHtml = RegExp('(' + keys(htmlUnescapes).join('|') + ')', 'g'),
+        reUnescapedHtml = RegExp('[' + keys(htmlEscapes).join('') + ']', 'g');
+
+    /**
+     * A function compiled to iterate `arguments` objects, arrays, objects, and
+     * strings consistenly across environments, executing the callback for each
+     * element in the collection. The callback is bound to `thisArg` and invoked
+     * with three arguments; (value, index|key, collection). Callbacks may exit
+     * iteration early by explicitly returning `false`.
+     *
+     * @private
+     * @type Function
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array|Object|string} Returns `collection`.
+     */
+    var baseEach = createIterator(eachIteratorOptions);
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Assigns own enumerable properties of source object(s) to the destination
+     * object. Subsequent sources will overwrite property assignments of previous
+     * sources. If a callback is provided it will be executed to produce the
+     * assigned values. The callback is bound to `thisArg` and invoked with two
+     * arguments; (objectValue, sourceValue).
+     *
+     * @static
+     * @memberOf _
+     * @type Function
+     * @alias extend
+     * @category Objects
+     * @param {Object} object The destination object.
+     * @param {...Object} [source] The source objects.
+     * @param {Function} [callback] The function to customize assigning values.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns the destination object.
+     * @example
+     *
+     * _.assign({ 'name': 'fred' }, { 'employer': 'slate' });
+     * // => { 'name': 'fred', 'employer': 'slate' }
+     *
+     * var defaults = _.partialRight(_.assign, function(a, b) {
+     *   return typeof a == 'undefined' ? b : a;
+     * });
+     *
+     * var object = { 'name': 'barney' };
+     * defaults(object, { 'name': 'fred', 'employer': 'slate' });
+     * // => { 'name': 'barney', 'employer': 'slate' }
+     */
+    var assign = createIterator(defaultsIteratorOptions, {
+      'top':
+        defaultsIteratorOptions.top.replace(';',
+          ';\n' +
+          "if (argsLength > 3 && typeof args[argsLength - 2] == 'function') {\n" +
+          '  var callback = baseCreateCallback(args[--argsLength - 1], args[argsLength--], 2);\n' +
+          "} else if (argsLength > 2 && typeof args[argsLength - 1] == 'function') {\n" +
+          '  callback = args[--argsLength];\n' +
+          '}'
+        ),
+      'loop': 'result[index] = callback ? callback(result[index], iterable[index]) : iterable[index]'
+    });
+
+    /**
+     * Creates a clone of `value`. If `isDeep` is `true` nested objects will also
+     * be cloned, otherwise they will be assigned by reference. If a callback
+     * is provided it will be executed to produce the cloned values. If the
+     * callback returns `undefined` cloning will be handled by the method instead.
+     * The callback is bound to `thisArg` and invoked with one argument; (value).
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to clone.
+     * @param {boolean} [isDeep=false] Specify a deep clone.
+     * @param {Function} [callback] The function to customize cloning values.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the cloned value.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * var shallow = _.clone(characters);
+     * shallow[0] === characters[0];
+     * // => true
+     *
+     * var deep = _.clone(characters, true);
+     * deep[0] === characters[0];
+     * // => false
+     *
+     * _.mixin({
+     *   'clone': _.partialRight(_.clone, function(value) {
+     *     return _.isElement(value) ? value.cloneNode(false) : undefined;
+     *   })
+     * });
+     *
+     * var clone = _.clone(document.body);
+     * clone.childNodes.length;
+     * // => 0
+     */
+    function clone(value, isDeep, callback, thisArg) {
+      // allows working with "Collections" methods without using their `index`
+      // and `collection` arguments for `isDeep` and `callback`
+      if (typeof isDeep != 'boolean' && isDeep != null) {
+        thisArg = callback;
+        callback = isDeep;
+        isDeep = false;
+      }
+      return baseClone(value, isDeep, typeof callback == 'function' && baseCreateCallback(callback, thisArg, 1));
+    }
+
+    /**
+     * Creates a deep clone of `value`. If a callback is provided it will be
+     * executed to produce the cloned values. If the callback returns `undefined`
+     * cloning will be handled by the method instead. The callback is bound to
+     * `thisArg` and invoked with one argument; (value).
+     *
+     * Note: This method is loosely based on the structured clone algorithm. Functions
+     * and DOM nodes are **not** cloned. The enumerable properties of `arguments` objects and
+     * objects created by constructors other than `Object` are cloned to plain `Object` objects.
+     * See http://www.w3.org/TR/html5/infrastructure.html#internal-structured-cloning-algorithm.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to deep clone.
+     * @param {Function} [callback] The function to customize cloning values.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the deep cloned value.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * var deep = _.cloneDeep(characters);
+     * deep[0] === characters[0];
+     * // => false
+     *
+     * var view = {
+     *   'label': 'docs',
+     *   'node': element
+     * };
+     *
+     * var clone = _.cloneDeep(view, function(value) {
+     *   return _.isElement(value) ? value.cloneNode(true) : undefined;
+     * });
+     *
+     * clone.node == view.node;
+     * // => false
+     */
+    function cloneDeep(value, callback, thisArg) {
+      return baseClone(value, true, typeof callback == 'function' && baseCreateCallback(callback, thisArg, 1));
+    }
+
+    /**
+     * Creates an object that inherits from the given `prototype` object. If a
+     * `properties` object is provided its own enumerable properties are assigned
+     * to the created object.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} prototype The object to inherit from.
+     * @param {Object} [properties] The properties to assign to the object.
+     * @returns {Object} Returns the new object.
+     * @example
+     *
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
+     * }
+     *
+     * function Circle() {
+     *   Shape.call(this);
+     * }
+     *
+     * Circle.prototype = _.create(Shape.prototype, { 'constructor': Circle });
+     *
+     * var circle = new Circle;
+     * circle instanceof Circle;
+     * // => true
+     *
+     * circle instanceof Shape;
+     * // => true
+     */
+    function create(prototype, properties) {
+      var result = baseCreate(prototype);
+      return properties ? assign(result, properties) : result;
+    }
+
+    /**
+     * Assigns own enumerable properties of source object(s) to the destination
+     * object for all destination properties that resolve to `undefined`. Once a
+     * property is set, additional defaults of the same property will be ignored.
+     *
+     * @static
+     * @memberOf _
+     * @type Function
+     * @category Objects
+     * @param {Object} object The destination object.
+     * @param {...Object} [source] The source objects.
+     * @param- {Object} [guard] Allows working with `_.reduce` without using its
+     *  `key` and `object` arguments as sources.
+     * @returns {Object} Returns the destination object.
+     * @example
+     *
+     * var object = { 'name': 'barney' };
+     * _.defaults(object, { 'name': 'fred', 'employer': 'slate' });
+     * // => { 'name': 'barney', 'employer': 'slate' }
+     */
+    var defaults = createIterator(defaultsIteratorOptions);
+
+    /**
+     * This method is like `_.findIndex` except that it returns the key of the
+     * first element that passes the callback check, instead of the element itself.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to search.
+     * @param {Function|Object|string} [callback=identity] The function called per
+     *  iteration. If a property name or object is provided it will be used to
+     *  create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {string|undefined} Returns the key of the found element, else `undefined`.
+     * @example
+     *
+     * var characters = {
+     *   'barney': {  'age': 36, 'blocked': false },
+     *   'fred': {    'age': 40, 'blocked': true },
+     *   'pebbles': { 'age': 1,  'blocked': false }
+     * };
+     *
+     * _.findKey(characters, function(chr) {
+     *   return chr.age < 40;
+     * });
+     * // => 'barney' (property order is not guaranteed across environments)
+     *
+     * // using "_.where" callback shorthand
+     * _.findKey(characters, { 'age': 1 });
+     * // => 'pebbles'
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findKey(characters, 'blocked');
+     * // => 'fred'
+     */
+    function findKey(object, callback, thisArg) {
+      var result;
+      callback = lodash.createCallback(callback, thisArg, 3);
+      forOwn(object, function(value, key, object) {
+        if (callback(value, key, object)) {
+          result = key;
+          return false;
+        }
+      });
+      return result;
+    }
+
+    /**
+     * This method is like `_.findKey` except that it iterates over elements
+     * of a `collection` in the opposite order.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to search.
+     * @param {Function|Object|string} [callback=identity] The function called per
+     *  iteration. If a property name or object is provided it will be used to
+     *  create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {string|undefined} Returns the key of the found element, else `undefined`.
+     * @example
+     *
+     * var characters = {
+     *   'barney': {  'age': 36, 'blocked': true },
+     *   'fred': {    'age': 40, 'blocked': false },
+     *   'pebbles': { 'age': 1,  'blocked': true }
+     * };
+     *
+     * _.findLastKey(characters, function(chr) {
+     *   return chr.age < 40;
+     * });
+     * // => returns `pebbles`, assuming `_.findKey` returns `barney`
+     *
+     * // using "_.where" callback shorthand
+     * _.findLastKey(characters, { 'age': 40 });
+     * // => 'fred'
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findLastKey(characters, 'blocked');
+     * // => 'pebbles'
+     */
+    function findLastKey(object, callback, thisArg) {
+      var result;
+      callback = lodash.createCallback(callback, thisArg, 3);
+      forOwnRight(object, function(value, key, object) {
+        if (callback(value, key, object)) {
+          result = key;
+          return false;
+        }
+      });
+      return result;
+    }
+
+    /**
+     * Iterates over own and inherited enumerable properties of an object,
+     * executing the callback for each property. The callback is bound to `thisArg`
+     * and invoked with three arguments; (value, key, object). Callbacks may exit
+     * iteration early by explicitly returning `false`.
+     *
+     * @static
+     * @memberOf _
+     * @type Function
+     * @category Objects
+     * @param {Object} object The object to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns `object`.
+     * @example
+     *
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
+     * }
+     *
+     * Shape.prototype.move = function(x, y) {
+     *   this.x += x;
+     *   this.y += y;
+     * };
+     *
+     * _.forIn(new Shape, function(value, key) {
+     *   console.log(key);
+     * });
+     * // => logs 'x', 'y', and 'move' (property order is not guaranteed across environments)
+     */
+    var forIn = createIterator(eachIteratorOptions, forOwnIteratorOptions, {
+      'useHas': false
+    });
+
+    /**
+     * This method is like `_.forIn` except that it iterates over elements
+     * of a `collection` in the opposite order.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns `object`.
+     * @example
+     *
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
+     * }
+     *
+     * Shape.prototype.move = function(x, y) {
+     *   this.x += x;
+     *   this.y += y;
+     * };
+     *
+     * _.forInRight(new Shape, function(value, key) {
+     *   console.log(key);
+     * });
+     * // => logs 'move', 'y', and 'x' assuming `_.forIn ` logs 'x', 'y', and 'move'
+     */
+    function forInRight(object, callback, thisArg) {
+      var pairs = [];
+
+      forIn(object, function(value, key) {
+        pairs.push(key, value);
+      });
+
+      var length = pairs.length;
+      callback = baseCreateCallback(callback, thisArg, 3);
+      while (length--) {
+        if (callback(pairs[length--], pairs[length], object) === false) {
+          break;
+        }
+      }
+      return object;
+    }
+
+    /**
+     * Iterates over own enumerable properties of an object, executing the callback
+     * for each property. The callback is bound to `thisArg` and invoked with three
+     * arguments; (value, key, object). Callbacks may exit iteration early by
+     * explicitly returning `false`.
+     *
+     * @static
+     * @memberOf _
+     * @type Function
+     * @category Objects
+     * @param {Object} object The object to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns `object`.
+     * @example
+     *
+     * _.forOwn({ '0': 'zero', '1': 'one', 'length': 2 }, function(num, key) {
+     *   console.log(key);
+     * });
+     * // => logs '0', '1', and 'length' (property order is not guaranteed across environments)
+     */
+    var forOwn = createIterator(eachIteratorOptions, forOwnIteratorOptions);
+
+    /**
+     * This method is like `_.forOwn` except that it iterates over elements
+     * of a `collection` in the opposite order.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns `object`.
+     * @example
+     *
+     * _.forOwnRight({ '0': 'zero', '1': 'one', 'length': 2 }, function(num, key) {
+     *   console.log(key);
+     * });
+     * // => logs 'length', '1', and '0' assuming `_.forOwn` logs '0', '1', and 'length'
+     */
+    function forOwnRight(object, callback, thisArg) {
+      var props = keys(object),
+          length = props.length;
+
+      callback = baseCreateCallback(callback, thisArg, 3);
+      while (length--) {
+        var key = props[length];
+        if (callback(object[key], key, object) === false) {
+          break;
+        }
+      }
+      return object;
+    }
+
+    /**
+     * Creates a sorted array of property names of all enumerable properties,
+     * own and inherited, of `object` that have function values.
+     *
+     * @static
+     * @memberOf _
+     * @alias methods
+     * @category Objects
+     * @param {Object} object The object to inspect.
+     * @returns {Array} Returns an array of property names that have function values.
+     * @example
+     *
+     * _.functions(_);
+     * // => ['all', 'any', 'bind', 'bindAll', 'clone', 'compact', 'compose', ...]
+     */
+    function functions(object) {
+      var result = [];
+      forIn(object, function(value, key) {
+        if (isFunction(value)) {
+          result.push(key);
+        }
+      });
+      return result.sort();
+    }
+
+    /**
+     * Checks if the specified property name exists as a direct property of `object`,
+     * instead of an inherited property.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to inspect.
+     * @param {string} key The name of the property to check.
+     * @returns {boolean} Returns `true` if key is a direct property, else `false`.
+     * @example
+     *
+     * _.has({ 'a': 1, 'b': 2, 'c': 3 }, 'b');
+     * // => true
+     */
+    function has(object, key) {
+      return object ? hasOwnProperty.call(object, key) : false;
+    }
+
+    /**
+     * Creates an object composed of the inverted keys and values of the given object.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to invert.
+     * @returns {Object} Returns the created inverted object.
+     * @example
+     *
+     * _.invert({ 'first': 'fred', 'second': 'barney' });
+     * // => { 'fred': 'first', 'barney': 'second' }
+     */
+    function invert(object) {
+      var index = -1,
+          props = keys(object),
+          length = props.length,
+          result = {};
+
+      while (++index < length) {
+        var key = props[index];
+        result[object[key]] = key;
+      }
+      return result;
+    }
+
+    /**
+     * Checks if `value` is a boolean value.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a boolean value, else `false`.
+     * @example
+     *
+     * _.isBoolean(null);
+     * // => false
+     */
+    function isBoolean(value) {
+      return value === true || value === false ||
+        value && typeof value == 'object' && toString.call(value) == boolClass || false;
+    }
+
+    /**
+     * Checks if `value` is a date.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a date, else `false`.
+     * @example
+     *
+     * _.isDate(new Date);
+     * // => true
+     */
+    function isDate(value) {
+      return value && typeof value == 'object' && toString.call(value) == dateClass || false;
+    }
+
+    /**
+     * Checks if `value` is a DOM element.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a DOM element, else `false`.
+     * @example
+     *
+     * _.isElement(document.body);
+     * // => true
+     */
+    function isElement(value) {
+      return value && value.nodeType === 1 || false;
+    }
+
+    /**
+     * Checks if `value` is empty. Arrays, strings, or `arguments` objects with a
+     * length of `0` and objects with no own enumerable properties are considered
+     * "empty".
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Array|Object|string} value The value to inspect.
+     * @returns {boolean} Returns `true` if the `value` is empty, else `false`.
+     * @example
+     *
+     * _.isEmpty([1, 2, 3]);
+     * // => false
+     *
+     * _.isEmpty({});
+     * // => true
+     *
+     * _.isEmpty('');
+     * // => true
+     */
+    function isEmpty(value) {
+      var result = true;
+      if (!value) {
+        return result;
+      }
+      var className = toString.call(value),
+          length = value.length;
+
+      if ((className == arrayClass || className == stringClass ||
+          (support.argsClass ? className == argsClass : isArguments(value))) ||
+          (className == objectClass && typeof length == 'number' && isFunction(value.splice))) {
+        return !length;
+      }
+      forOwn(value, function() {
+        return (result = false);
+      });
+      return result;
+    }
+
+    /**
+     * Performs a deep comparison between two values to determine if they are
+     * equivalent to each other. If a callback is provided it will be executed
+     * to compare values. If the callback returns `undefined` comparisons will
+     * be handled by the method instead. The callback is bound to `thisArg` and
+     * invoked with two arguments; (a, b).
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} a The value to compare.
+     * @param {*} b The other value to compare.
+     * @param {Function} [callback] The function to customize comparing values.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
+     * @example
+     *
+     * var object = { 'name': 'fred' };
+     * var copy = { 'name': 'fred' };
+     *
+     * object == copy;
+     * // => false
+     *
+     * _.isEqual(object, copy);
+     * // => true
+     *
+     * var words = ['hello', 'goodbye'];
+     * var otherWords = ['hi', 'goodbye'];
+     *
+     * _.isEqual(words, otherWords, function(a, b) {
+     *   var reGreet = /^(?:hello|hi)$/i,
+     *       aGreet = _.isString(a) && reGreet.test(a),
+     *       bGreet = _.isString(b) && reGreet.test(b);
+     *
+     *   return (aGreet || bGreet) ? (aGreet == bGreet) : undefined;
+     * });
+     * // => true
+     */
+    function isEqual(a, b, callback, thisArg) {
+      return baseIsEqual(a, b, typeof callback == 'function' && baseCreateCallback(callback, thisArg, 2));
+    }
+
+    /**
+     * Checks if `value` is, or can be coerced to, a finite number.
+     *
+     * Note: This is not the same as native `isFinite` which will return true for
+     * booleans and empty strings. See http://es5.github.io/#x15.1.2.5.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is finite, else `false`.
+     * @example
+     *
+     * _.isFinite(-101);
+     * // => true
+     *
+     * _.isFinite('10');
+     * // => true
+     *
+     * _.isFinite(true);
+     * // => false
+     *
+     * _.isFinite('');
+     * // => false
+     *
+     * _.isFinite(Infinity);
+     * // => false
+     */
+    function isFinite(value) {
+      return nativeIsFinite(value) && !nativeIsNaN(parseFloat(value));
+    }
+
+    /**
+     * Checks if `value` is a function.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a function, else `false`.
+     * @example
+     *
+     * _.isFunction(_);
+     * // => true
+     */
+    function isFunction(value) {
+      return typeof value == 'function';
+    }
+    // fallback for older versions of Chrome and Safari
+    if (isFunction(/x/)) {
+      isFunction = function(value) {
+        return typeof value == 'function' && toString.call(value) == funcClass;
+      };
+    }
+
+    /**
+     * Checks if `value` is the language type of Object.
+     * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is an object, else `false`.
+     * @example
+     *
+     * _.isObject({});
+     * // => true
+     *
+     * _.isObject([1, 2, 3]);
+     * // => true
+     *
+     * _.isObject(1);
+     * // => false
+     */
+    function isObject(value) {
+      // check if the value is the ECMAScript language type of Object
+      // http://es5.github.io/#x8
+      // and avoid a V8 bug
+      // http://code.google.com/p/v8/issues/detail?id=2291
+      return !!(value && objectTypes[typeof value]);
+    }
+
+    /**
+     * Checks if `value` is `NaN`.
+     *
+     * Note: This is not the same as native `isNaN` which will return `true` for
+     * `undefined` and other non-numeric values. See http://es5.github.io/#x15.1.2.4.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is `NaN`, else `false`.
+     * @example
+     *
+     * _.isNaN(NaN);
+     * // => true
+     *
+     * _.isNaN(new Number(NaN));
+     * // => true
+     *
+     * isNaN(undefined);
+     * // => true
+     *
+     * _.isNaN(undefined);
+     * // => false
+     */
+    function isNaN(value) {
+      // `NaN` as a primitive is the only value that is not equal to itself
+      // (perform the [[Class]] check first to avoid errors with some host objects in IE)
+      return isNumber(value) && value != +value;
+    }
+
+    /**
+     * Checks if `value` is `null`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is `null`, else `false`.
+     * @example
+     *
+     * _.isNull(null);
+     * // => true
+     *
+     * _.isNull(undefined);
+     * // => false
+     */
+    function isNull(value) {
+      return value === null;
+    }
+
+    /**
+     * Checks if `value` is a number.
+     *
+     * Note: `NaN` is considered a number. See http://es5.github.io/#x8.5.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a number, else `false`.
+     * @example
+     *
+     * _.isNumber(8.4 * 5);
+     * // => true
+     */
+    function isNumber(value) {
+      return typeof value == 'number' ||
+        value && typeof value == 'object' && toString.call(value) == numberClass || false;
+    }
+
+    /**
+     * Checks if `value` is an object created by the `Object` constructor.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if `value` is a plain object, else `false`.
+     * @example
+     *
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
+     * }
+     *
+     * _.isPlainObject(new Shape);
+     * // => false
+     *
+     * _.isPlainObject([1, 2, 3]);
+     * // => false
+     *
+     * _.isPlainObject({ 'x': 0, 'y': 0 });
+     * // => true
+     */
+    var isPlainObject = !getPrototypeOf ? shimIsPlainObject : function(value) {
+      if (!(value && toString.call(value) == objectClass) || (!support.argsClass && isArguments(value))) {
+        return false;
+      }
+      var valueOf = value.valueOf,
+          objProto = isNative(valueOf) && (objProto = getPrototypeOf(valueOf)) && getPrototypeOf(objProto);
+
+      return objProto
+        ? (value == objProto || getPrototypeOf(value) == objProto)
+        : shimIsPlainObject(value);
+    };
+
+    /**
+     * Checks if `value` is a regular expression.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a regular expression, else `false`.
+     * @example
+     *
+     * _.isRegExp(/fred/);
+     * // => true
+     */
+    function isRegExp(value) {
+      return value && objectTypes[typeof value] && toString.call(value) == regexpClass || false;
+    }
+
+    /**
+     * Checks if `value` is a string.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a string, else `false`.
+     * @example
+     *
+     * _.isString('fred');
+     * // => true
+     */
+    function isString(value) {
+      return typeof value == 'string' ||
+        value && typeof value == 'object' && toString.call(value) == stringClass || false;
+    }
+
+    /**
+     * Checks if `value` is `undefined`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is `undefined`, else `false`.
+     * @example
+     *
+     * _.isUndefined(void 0);
+     * // => true
+     */
+    function isUndefined(value) {
+      return typeof value == 'undefined';
+    }
+
+    /**
+     * Creates an object with the same keys as `object` and values generated by
+     * running each own enumerable property of `object` through the callback.
+     * The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, key, object).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new object with values of the results of each `callback` execution.
+     * @example
+     *
+     * _.mapValues({ 'a': 1, 'b': 2, 'c': 3} , function(num) { return num * 3; });
+     * // => { 'a': 3, 'b': 6, 'c': 9 }
+     *
+     * var characters = {
+     *   'fred': { 'name': 'fred', 'age': 40 },
+     *   'pebbles': { 'name': 'pebbles', 'age': 1 }
+     * };
+     *
+     * // using "_.pluck" callback shorthand
+     * _.mapValues(characters, 'age');
+     * // => { 'fred': 40, 'pebbles': 1 }
+     */
+    function mapValues(object, callback, thisArg) {
+      var result = {};
+      callback = lodash.createCallback(callback, thisArg, 3);
+
+      forOwn(object, function(value, key, object) {
+        result[key] = callback(value, key, object);
+      });
+      return result;
+    }
+
+    /**
+     * Recursively merges own enumerable properties of the source object(s), that
+     * don't resolve to `undefined` into the destination object. Subsequent sources
+     * will overwrite property assignments of previous sources. If a callback is
+     * provided it will be executed to produce the merged values of the destination
+     * and source properties. If the callback returns `undefined` merging will
+     * be handled by the method instead. The callback is bound to `thisArg` and
+     * invoked with two arguments; (objectValue, sourceValue).
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The destination object.
+     * @param {...Object} [source] The source objects.
+     * @param {Function} [callback] The function to customize merging properties.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns the destination object.
+     * @example
+     *
+     * var names = {
+     *   'characters': [
+     *     { 'name': 'barney' },
+     *     { 'name': 'fred' }
+     *   ]
+     * };
+     *
+     * var ages = {
+     *   'characters': [
+     *     { 'age': 36 },
+     *     { 'age': 40 }
+     *   ]
+     * };
+     *
+     * _.merge(names, ages);
+     * // => { 'characters': [{ 'name': 'barney', 'age': 36 }, { 'name': 'fred', 'age': 40 }] }
+     *
+     * var food = {
+     *   'fruits': ['apple'],
+     *   'vegetables': ['beet']
+     * };
+     *
+     * var otherFood = {
+     *   'fruits': ['banana'],
+     *   'vegetables': ['carrot']
+     * };
+     *
+     * _.merge(food, otherFood, function(a, b) {
+     *   return _.isArray(a) ? a.concat(b) : undefined;
+     * });
+     * // => { 'fruits': ['apple', 'banana'], 'vegetables': ['beet', 'carrot] }
+     */
+    function merge(object) {
+      var args = arguments,
+          length = 2;
+
+      if (!isObject(object)) {
+        return object;
+      }
+      // allows working with `_.reduce` and `_.reduceRight` without using
+      // their `index` and `collection` arguments
+      if (typeof args[2] != 'number') {
+        length = args.length;
+      }
+      if (length > 3 && typeof args[length - 2] == 'function') {
+        var callback = baseCreateCallback(args[--length - 1], args[length--], 2);
+      } else if (length > 2 && typeof args[length - 1] == 'function') {
+        callback = args[--length];
+      }
+      var sources = slice(arguments, 1, length),
+          index = -1,
+          stackA = getArray(),
+          stackB = getArray();
+
+      while (++index < length) {
+        baseMerge(object, sources[index], callback, stackA, stackB);
+      }
+      releaseArray(stackA);
+      releaseArray(stackB);
+      return object;
+    }
+
+    /**
+     * Creates a shallow clone of `object` excluding the specified properties.
+     * Property names may be specified as individual arguments or as arrays of
+     * property names. If a callback is provided it will be executed for each
+     * property of `object` omitting the properties the callback returns truey
+     * for. The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, key, object).
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The source object.
+     * @param {Function|...string|string[]} [callback] The properties to omit or the
+     *  function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns an object without the omitted properties.
+     * @example
+     *
+     * _.omit({ 'name': 'fred', 'age': 40 }, 'age');
+     * // => { 'name': 'fred' }
+     *
+     * _.omit({ 'name': 'fred', 'age': 40 }, function(value) {
+     *   return typeof value == 'number';
+     * });
+     * // => { 'name': 'fred' }
+     */
+    function omit(object, callback, thisArg) {
+      var result = {};
+      if (typeof callback != 'function') {
+        var props = [];
+        forIn(object, function(value, key) {
+          props.push(key);
+        });
+        props = baseDifference(props, baseFlatten(arguments, true, false, 1));
+
+        var index = -1,
+            length = props.length;
+
+        while (++index < length) {
+          var key = props[index];
+          result[key] = object[key];
+        }
+      } else {
+        callback = lodash.createCallback(callback, thisArg, 3);
+        forIn(object, function(value, key, object) {
+          if (!callback(value, key, object)) {
+            result[key] = value;
+          }
+        });
+      }
+      return result;
+    }
+
+    /**
+     * Creates a two dimensional array of an object's key-value pairs,
+     * i.e. `[[key1, value1], [key2, value2]]`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to inspect.
+     * @returns {Array} Returns new array of key-value pairs.
+     * @example
+     *
+     * _.pairs({ 'barney': 36, 'fred': 40 });
+     * // => [['barney', 36], ['fred', 40]] (property order is not guaranteed across environments)
+     */
+    function pairs(object) {
+      var index = -1,
+          props = keys(object),
+          length = props.length,
+          result = Array(length);
+
+      while (++index < length) {
+        var key = props[index];
+        result[index] = [key, object[key]];
+      }
+      return result;
+    }
+
+    /**
+     * Creates a shallow clone of `object` composed of the specified properties.
+     * Property names may be specified as individual arguments or as arrays of
+     * property names. If a callback is provided it will be executed for each
+     * property of `object` picking the properties the callback returns truey
+     * for. The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, key, object).
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The source object.
+     * @param {Function|...string|string[]} [callback] The function called per
+     *  iteration or property names to pick, specified as individual property
+     *  names or arrays of property names.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns an object composed of the picked properties.
+     * @example
+     *
+     * _.pick({ 'name': 'fred', '_userid': 'fred1' }, 'name');
+     * // => { 'name': 'fred' }
+     *
+     * _.pick({ 'name': 'fred', '_userid': 'fred1' }, function(value, key) {
+     *   return key.charAt(0) != '_';
+     * });
+     * // => { 'name': 'fred' }
+     */
+    function pick(object, callback, thisArg) {
+      var result = {};
+      if (typeof callback != 'function') {
+        var index = -1,
+            props = baseFlatten(arguments, true, false, 1),
+            length = isObject(object) ? props.length : 0;
+
+        while (++index < length) {
+          var key = props[index];
+          if (key in object) {
+            result[key] = object[key];
+          }
+        }
+      } else {
+        callback = lodash.createCallback(callback, thisArg, 3);
+        forIn(object, function(value, key, object) {
+          if (callback(value, key, object)) {
+            result[key] = value;
+          }
+        });
+      }
+      return result;
+    }
+
+    /**
+     * An alternative to `_.reduce` this method transforms `object` to a new
+     * `accumulator` object which is the result of running each of its own
+     * enumerable properties through a callback, with each callback execution
+     * potentially mutating the `accumulator` object. The callback is bound to
+     * `thisArg` and invoked with four arguments; (accumulator, value, key, object).
+     * Callbacks may exit iteration early by explicitly returning `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Array|Object} object The object to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [accumulator] The custom accumulator value.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the accumulated value.
+     * @example
+     *
+     * var squares = _.transform([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], function(result, num) {
+     *   num *= num;
+     *   if (num % 2) {
+     *     return result.push(num) < 3;
+     *   }
+     * });
+     * // => [1, 9, 25]
+     *
+     * var mapped = _.transform({ 'a': 1, 'b': 2, 'c': 3 }, function(result, num, key) {
+     *   result[key] = num * 3;
+     * });
+     * // => { 'a': 3, 'b': 6, 'c': 9 }
+     */
+    function transform(object, callback, accumulator, thisArg) {
+      var isArr = isArray(object);
+      if (accumulator == null) {
+        if (isArr) {
+          accumulator = [];
+        } else {
+          var ctor = object && object.constructor,
+              proto = ctor && ctor.prototype;
+
+          accumulator = baseCreate(proto);
+        }
+      }
+      if (callback) {
+        callback = lodash.createCallback(callback, thisArg, 4);
+        (isArr ? baseEach : forOwn)(object, function(value, index, object) {
+          return callback(accumulator, value, index, object);
+        });
+      }
+      return accumulator;
+    }
+
+    /**
+     * Creates an array composed of the own enumerable property values of `object`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to inspect.
+     * @returns {Array} Returns an array of property values.
+     * @example
+     *
+     * _.values({ 'one': 1, 'two': 2, 'three': 3 });
+     * // => [1, 2, 3] (property order is not guaranteed across environments)
+     */
+    function values(object) {
+      var index = -1,
+          props = keys(object),
+          length = props.length,
+          result = Array(length);
+
+      while (++index < length) {
+        result[index] = object[props[index]];
+      }
+      return result;
+    }
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Creates an array of elements from the specified indexes, or keys, of the
+     * `collection`. Indexes may be specified as individual arguments or as arrays
+     * of indexes.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {...(number|number[]|string|string[])} [index] The indexes of `collection`
+     *   to retrieve, specified as individual indexes or arrays of indexes.
+     * @returns {Array} Returns a new array of elements corresponding to the
+     *  provided indexes.
+     * @example
+     *
+     * _.at(['a', 'b', 'c', 'd', 'e'], [0, 2, 4]);
+     * // => ['a', 'c', 'e']
+     *
+     * _.at(['fred', 'barney', 'pebbles'], 0, 2);
+     * // => ['fred', 'pebbles']
+     */
+    function at(collection) {
+      var args = arguments,
+          index = -1,
+          props = baseFlatten(args, true, false, 1),
+          length = (args[2] && args[2][args[1]] === collection) ? 1 : props.length,
+          result = Array(length);
+
+      if (support.unindexedChars && isString(collection)) {
+        collection = collection.split('');
+      }
+      while(++index < length) {
+        result[index] = collection[props[index]];
+      }
+      return result;
+    }
+
+    /**
+     * Checks if a given value is present in a collection using strict equality
+     * for comparisons, i.e. `===`. If `fromIndex` is negative, it is used as the
+     * offset from the end of the collection.
+     *
+     * @static
+     * @memberOf _
+     * @alias include
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {*} target The value to check for.
+     * @param {number} [fromIndex=0] The index to search from.
+     * @returns {boolean} Returns `true` if the `target` element is found, else `false`.
+     * @example
+     *
+     * _.contains([1, 2, 3], 1);
+     * // => true
+     *
+     * _.contains([1, 2, 3], 1, 2);
+     * // => false
+     *
+     * _.contains({ 'name': 'fred', 'age': 40 }, 'fred');
+     * // => true
+     *
+     * _.contains('pebbles', 'eb');
+     * // => true
+     */
+    function contains(collection, target, fromIndex) {
+      var index = -1,
+          indexOf = getIndexOf(),
+          length = collection ? collection.length : 0,
+          result = false;
+
+      fromIndex = (fromIndex < 0 ? nativeMax(0, length + fromIndex) : fromIndex) || 0;
+      if (isArray(collection)) {
+        result = indexOf(collection, target, fromIndex) > -1;
+      } else if (typeof length == 'number') {
+        result = (isString(collection) ? collection.indexOf(target, fromIndex) : indexOf(collection, target, fromIndex)) > -1;
+      } else {
+        baseEach(collection, function(value) {
+          if (++index >= fromIndex) {
+            return !(result = value === target);
+          }
+        });
+      }
+      return result;
+    }
+
+    /**
+     * Creates an object composed of keys generated from the results of running
+     * each element of `collection` through the callback. The corresponding value
+     * of each key is the number of times the key was returned by the callback.
+     * The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns the composed aggregate object.
+     * @example
+     *
+     * _.countBy([4.3, 6.1, 6.4], function(num) { return Math.floor(num); });
+     * // => { '4': 1, '6': 2 }
+     *
+     * _.countBy([4.3, 6.1, 6.4], function(num) { return this.floor(num); }, Math);
+     * // => { '4': 1, '6': 2 }
+     *
+     * _.countBy(['one', 'two', 'three'], 'length');
+     * // => { '3': 2, '5': 1 }
+     */
+    var countBy = createAggregator(function(result, value, key) {
+      (hasOwnProperty.call(result, key) ? result[key]++ : result[key] = 1);
+    });
+
+    /**
+     * Checks if the given callback returns truey value for **all** elements of
+     * a collection. The callback is bound to `thisArg` and invoked with three
+     * arguments; (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias all
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {boolean} Returns `true` if all elements passed the callback check,
+     *  else `false`.
+     * @example
+     *
+     * _.every([true, 1, null, 'yes']);
+     * // => false
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.every(characters, 'age');
+     * // => true
+     *
+     * // using "_.where" callback shorthand
+     * _.every(characters, { 'age': 36 });
+     * // => false
+     */
+    function every(collection, callback, thisArg) {
+      var result = true;
+      callback = lodash.createCallback(callback, thisArg, 3);
+
+      if (isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        while (++index < length) {
+          if (!(result = !!callback(collection[index], index, collection))) {
+            break;
+          }
+        }
+      } else {
+        baseEach(collection, function(value, index, collection) {
+          return (result = !!callback(value, index, collection));
+        });
+      }
+      return result;
+    }
+
+    /**
+     * Iterates over elements of a collection, returning an array of all elements
+     * the callback returns truey for. The callback is bound to `thisArg` and
+     * invoked with three arguments; (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias select
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new array of elements that passed the callback check.
+     * @example
+     *
+     * var evens = _.filter([1, 2, 3, 4, 5, 6], function(num) { return num % 2 == 0; });
+     * // => [2, 4, 6]
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'blocked': false },
+     *   { 'name': 'fred',   'age': 40, 'blocked': true }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.filter(characters, 'blocked');
+     * // => [{ 'name': 'fred', 'age': 40, 'blocked': true }]
+     *
+     * // using "_.where" callback shorthand
+     * _.filter(characters, { 'age': 36 });
+     * // => [{ 'name': 'barney', 'age': 36, 'blocked': false }]
+     */
+    function filter(collection, callback, thisArg) {
+      var result = [];
+      callback = lodash.createCallback(callback, thisArg, 3);
+
+      if (isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        while (++index < length) {
+          var value = collection[index];
+          if (callback(value, index, collection)) {
+            result.push(value);
+          }
+        }
+      } else {
+        baseEach(collection, function(value, index, collection) {
+          if (callback(value, index, collection)) {
+            result.push(value);
+          }
+        });
+      }
+      return result;
+    }
+
+    /**
+     * Iterates over elements of a collection, returning the first element that
+     * the callback returns truey for. The callback is bound to `thisArg` and
+     * invoked with three arguments; (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias detect, findWhere
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the found element, else `undefined`.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36, 'blocked': false },
+     *   { 'name': 'fred',    'age': 40, 'blocked': true },
+     *   { 'name': 'pebbles', 'age': 1,  'blocked': false }
+     * ];
+     *
+     * _.find(characters, function(chr) {
+     *   return chr.age < 40;
+     * });
+     * // => { 'name': 'barney', 'age': 36, 'blocked': false }
+     *
+     * // using "_.where" callback shorthand
+     * _.find(characters, { 'age': 1 });
+     * // =>  { 'name': 'pebbles', 'age': 1, 'blocked': false }
+     *
+     * // using "_.pluck" callback shorthand
+     * _.find(characters, 'blocked');
+     * // => { 'name': 'fred', 'age': 40, 'blocked': true }
+     */
+    function find(collection, callback, thisArg) {
+      callback = lodash.createCallback(callback, thisArg, 3);
+
+      if (isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        while (++index < length) {
+          var value = collection[index];
+          if (callback(value, index, collection)) {
+            return value;
+          }
+        }
+      } else {
+        var result;
+        baseEach(collection, function(value, index, collection) {
+          if (callback(value, index, collection)) {
+            result = value;
+            return false;
+          }
+        });
+        return result;
+      }
+    }
+
+    /**
+     * This method is like `_.find` except that it iterates over elements
+     * of a `collection` from right to left.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the found element, else `undefined`.
+     * @example
+     *
+     * _.findLast([1, 2, 3, 4], function(num) {
+     *   return num % 2 == 1;
+     * });
+     * // => 3
+     */
+    function findLast(collection, callback, thisArg) {
+      var result;
+      callback = lodash.createCallback(callback, thisArg, 3);
+      forEachRight(collection, function(value, index, collection) {
+        if (callback(value, index, collection)) {
+          result = value;
+          return false;
+        }
+      });
+      return result;
+    }
+
+    /**
+     * Iterates over elements of a collection, executing the callback for each
+     * element. The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, index|key, collection). Callbacks may exit iteration early by
+     * explicitly returning `false`.
+     *
+     * Note: As with other "Collections" methods, objects with a `length` property
+     * are iterated like arrays. To avoid this behavior `_.forIn` or `_.forOwn`
+     * may be used for object iteration.
+     *
+     * @static
+     * @memberOf _
+     * @alias each
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array|Object|string} Returns `collection`.
+     * @example
+     *
+     * _([1, 2, 3]).forEach(function(num) { console.log(num); }).join(',');
+     * // => logs each number and returns '1,2,3'
+     *
+     * _.forEach({ 'one': 1, 'two': 2, 'three': 3 }, function(num) { console.log(num); });
+     * // => logs each number and returns the object (property order is not guaranteed across environments)
+     */
+    function forEach(collection, callback, thisArg) {
+      if (callback && typeof thisArg == 'undefined' && isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        while (++index < length) {
+          if (callback(collection[index], index, collection) === false) {
+            break;
+          }
+        }
+      } else {
+        baseEach(collection, callback, thisArg);
+      }
+      return collection;
+    }
+
+    /**
+     * This method is like `_.forEach` except that it iterates over elements
+     * of a `collection` from right to left.
+     *
+     * @static
+     * @memberOf _
+     * @alias eachRight
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array|Object|string} Returns `collection`.
+     * @example
+     *
+     * _([1, 2, 3]).forEachRight(function(num) { console.log(num); }).join(',');
+     * // => logs each number from right to left and returns '3,2,1'
+     */
+    function forEachRight(collection, callback, thisArg) {
+      var iterable = collection,
+          length = collection ? collection.length : 0;
+
+      callback = callback && typeof thisArg == 'undefined' ? callback : baseCreateCallback(callback, thisArg, 3);
+      if (isArray(collection)) {
+        while (length--) {
+          if (callback(collection[length], length, collection) === false) {
+            break;
+          }
+        }
+      } else {
+        if (typeof length != 'number') {
+          var props = keys(collection);
+          length = props.length;
+        } else if (support.unindexedChars && isString(collection)) {
+          iterable = collection.split('');
+        }
+        baseEach(collection, function(value, key, collection) {
+          key = props ? props[--length] : --length;
+          return callback(iterable[key], key, collection);
+        });
+      }
+      return collection;
+    }
+
+    /**
+     * Creates an object composed of keys generated from the results of running
+     * each element of a collection through the callback. The corresponding value
+     * of each key is an array of the elements responsible for generating the key.
+     * The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns the composed aggregate object.
+     * @example
+     *
+     * _.groupBy([4.2, 6.1, 6.4], function(num) { return Math.floor(num); });
+     * // => { '4': [4.2], '6': [6.1, 6.4] }
+     *
+     * _.groupBy([4.2, 6.1, 6.4], function(num) { return this.floor(num); }, Math);
+     * // => { '4': [4.2], '6': [6.1, 6.4] }
+     *
+     * // using "_.pluck" callback shorthand
+     * _.groupBy(['one', 'two', 'three'], 'length');
+     * // => { '3': ['one', 'two'], '5': ['three'] }
+     */
+    var groupBy = createAggregator(function(result, value, key) {
+      (hasOwnProperty.call(result, key) ? result[key] : result[key] = []).push(value);
+    });
+
+    /**
+     * Creates an object composed of keys generated from the results of running
+     * each element of the collection through the given callback. The corresponding
+     * value of each key is the last element responsible for generating the key.
+     * The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Object} Returns the composed aggregate object.
+     * @example
+     *
+     * var keys = [
+     *   { 'dir': 'left', 'code': 97 },
+     *   { 'dir': 'right', 'code': 100 }
+     * ];
+     *
+     * _.indexBy(keys, 'dir');
+     * // => { 'left': { 'dir': 'left', 'code': 97 }, 'right': { 'dir': 'right', 'code': 100 } }
+     *
+     * _.indexBy(keys, function(key) { return String.fromCharCode(key.code); });
+     * // => { 'a': { 'dir': 'left', 'code': 97 }, 'd': { 'dir': 'right', 'code': 100 } }
+     *
+     * _.indexBy(characters, function(key) { this.fromCharCode(key.code); }, String);
+     * // => { 'a': { 'dir': 'left', 'code': 97 }, 'd': { 'dir': 'right', 'code': 100 } }
+     */
+    var indexBy = createAggregator(function(result, value, key) {
+      result[key] = value;
+    });
+
+    /**
+     * Invokes the method named by `methodName` on each element in the `collection`
+     * returning an array of the results of each invoked method. Additional arguments
+     * will be provided to each invoked method. If `methodName` is a function it
+     * will be invoked for, and `this` bound to, each element in the `collection`.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|string} methodName The name of the method to invoke or
+     *  the function invoked per iteration.
+     * @param {...*} [arg] Arguments to invoke the method with.
+     * @returns {Array} Returns a new array of the results of each invoked method.
+     * @example
+     *
+     * _.invoke([[5, 1, 7], [3, 2, 1]], 'sort');
+     * // => [[1, 5, 7], [1, 2, 3]]
+     *
+     * _.invoke([123, 456], String.prototype.split, '');
+     * // => [['1', '2', '3'], ['4', '5', '6']]
+     */
+    function invoke(collection, methodName) {
+      var args = slice(arguments, 2),
+          index = -1,
+          isFunc = typeof methodName == 'function',
+          length = collection ? collection.length : 0,
+          result = Array(typeof length == 'number' ? length : 0);
+
+      forEach(collection, function(value) {
+        result[++index] = (isFunc ? methodName : value[methodName]).apply(value, args);
+      });
+      return result;
+    }
+
+    /**
+     * Creates an array of values by running each element in the collection
+     * through the callback. The callback is bound to `thisArg` and invoked with
+     * three arguments; (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias collect
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new array of the results of each `callback` execution.
+     * @example
+     *
+     * _.map([1, 2, 3], function(num) { return num * 3; });
+     * // => [3, 6, 9]
+     *
+     * _.map({ 'one': 1, 'two': 2, 'three': 3 }, function(num) { return num * 3; });
+     * // => [3, 6, 9] (property order is not guaranteed across environments)
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.map(characters, 'name');
+     * // => ['barney', 'fred']
+     */
+    function map(collection, callback, thisArg) {
+      var index = -1,
+          length = collection ? collection.length : 0,
+          result = Array(typeof length == 'number' ? length : 0);
+
+      callback = lodash.createCallback(callback, thisArg, 3);
+      if (isArray(collection)) {
+        while (++index < length) {
+          result[index] = callback(collection[index], index, collection);
+        }
+      } else {
+        baseEach(collection, function(value, key, collection) {
+          result[++index] = callback(value, key, collection);
+        });
+      }
+      return result;
+    }
+
+    /**
+     * Retrieves the maximum value of a collection. If the collection is empty or
+     * falsey `-Infinity` is returned. If a callback is provided it will be executed
+     * for each value in the collection to generate the criterion by which the value
+     * is ranked. The callback is bound to `thisArg` and invoked with three
+     * arguments; (value, index, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the maximum value.
+     * @example
+     *
+     * _.max([4, 2, 8, 6]);
+     * // => 8
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * _.max(characters, function(chr) { return chr.age; });
+     * // => { 'name': 'fred', 'age': 40 };
+     *
+     * // using "_.pluck" callback shorthand
+     * _.max(characters, 'age');
+     * // => { 'name': 'fred', 'age': 40 };
+     */
+    function max(collection, callback, thisArg) {
+      var computed = -Infinity,
+          result = computed;
+
+      // allows working with functions like `_.map` without using
+      // their `index` argument as a callback
+      if (typeof callback != 'function' && thisArg && thisArg[callback] === collection) {
+        callback = null;
+      }
+      if (callback == null && isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        while (++index < length) {
+          var value = collection[index];
+          if (value > result) {
+            result = value;
+          }
+        }
+      } else {
+        callback = (callback == null && isString(collection))
+          ? charAtCallback
+          : lodash.createCallback(callback, thisArg, 3);
+
+        baseEach(collection, function(value, index, collection) {
+          var current = callback(value, index, collection);
+          if (current > computed) {
+            computed = current;
+            result = value;
+          }
+        });
+      }
+      return result;
+    }
+
+    /**
+     * Retrieves the minimum value of a collection. If the collection is empty or
+     * falsey `Infinity` is returned. If a callback is provided it will be executed
+     * for each value in the collection to generate the criterion by which the value
+     * is ranked. The callback is bound to `thisArg` and invoked with three
+     * arguments; (value, index, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the minimum value.
+     * @example
+     *
+     * _.min([4, 2, 8, 6]);
+     * // => 2
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * _.min(characters, function(chr) { return chr.age; });
+     * // => { 'name': 'barney', 'age': 36 };
+     *
+     * // using "_.pluck" callback shorthand
+     * _.min(characters, 'age');
+     * // => { 'name': 'barney', 'age': 36 };
+     */
+    function min(collection, callback, thisArg) {
+      var computed = Infinity,
+          result = computed;
+
+      // allows working with functions like `_.map` without using
+      // their `index` argument as a callback
+      if (typeof callback != 'function' && thisArg && thisArg[callback] === collection) {
+        callback = null;
+      }
+      if (callback == null && isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        while (++index < length) {
+          var value = collection[index];
+          if (value < result) {
+            result = value;
+          }
+        }
+      } else {
+        callback = (callback == null && isString(collection))
+          ? charAtCallback
+          : lodash.createCallback(callback, thisArg, 3);
+
+        baseEach(collection, function(value, index, collection) {
+          var current = callback(value, index, collection);
+          if (current < computed) {
+            computed = current;
+            result = value;
+          }
+        });
+      }
+      return result;
+    }
+
+    /**
+     * Retrieves the value of a specified property from all elements in the collection.
+     *
+     * @static
+     * @memberOf _
+     * @type Function
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {string} property The name of the property to pluck.
+     * @returns {Array} Returns a new array of property values.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * _.pluck(characters, 'name');
+     * // => ['barney', 'fred']
+     */
+    var pluck = map;
+
+    /**
+     * Reduces a collection to a value which is the accumulated result of running
+     * each element in the collection through the callback, where each successive
+     * callback execution consumes the return value of the previous execution. If
+     * `accumulator` is not provided the first element of the collection will be
+     * used as the initial `accumulator` value. The callback is bound to `thisArg`
+     * and invoked with four arguments; (accumulator, value, index|key, collection).
+     *
+     * @static
+     * @memberOf _
+     * @alias foldl, inject
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [accumulator] Initial value of the accumulator.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the accumulated value.
+     * @example
+     *
+     * var sum = _.reduce([1, 2, 3], function(sum, num) {
+     *   return sum + num;
+     * });
+     * // => 6
+     *
+     * var mapped = _.reduce({ 'a': 1, 'b': 2, 'c': 3 }, function(result, num, key) {
+     *   result[key] = num * 3;
+     *   return result;
+     * }, {});
+     * // => { 'a': 3, 'b': 6, 'c': 9 }
+     */
+    function reduce(collection, callback, accumulator, thisArg) {
+      var noaccum = arguments.length < 3;
+      callback = lodash.createCallback(callback, thisArg, 4);
+
+      if (isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        if (noaccum) {
+          accumulator = collection[++index];
+        }
+        while (++index < length) {
+          accumulator = callback(accumulator, collection[index], index, collection);
+        }
+      } else {
+        baseEach(collection, function(value, index, collection) {
+          accumulator = noaccum
+            ? (noaccum = false, value)
+            : callback(accumulator, value, index, collection)
+        });
+      }
+      return accumulator;
+    }
+
+    /**
+     * This method is like `_.reduce` except that it iterates over elements
+     * of a `collection` from right to left.
+     *
+     * @static
+     * @memberOf _
+     * @alias foldr
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function} [callback=identity] The function called per iteration.
+     * @param {*} [accumulator] Initial value of the accumulator.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the accumulated value.
+     * @example
+     *
+     * var list = [[0, 1], [2, 3], [4, 5]];
+     * var flat = _.reduceRight(list, function(a, b) { return a.concat(b); }, []);
+     * // => [4, 5, 2, 3, 0, 1]
+     */
+    function reduceRight(collection, callback, accumulator, thisArg) {
+      var noaccum = arguments.length < 3;
+      callback = lodash.createCallback(callback, thisArg, 4);
+      forEachRight(collection, function(value, index, collection) {
+        accumulator = noaccum
+          ? (noaccum = false, value)
+          : callback(accumulator, value, index, collection);
+      });
+      return accumulator;
+    }
+
+    /**
+     * The opposite of `_.filter` this method returns the elements of a
+     * collection that the callback does **not** return truey for.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new array of elements that failed the callback check.
+     * @example
+     *
+     * var odds = _.reject([1, 2, 3, 4, 5, 6], function(num) { return num % 2 == 0; });
+     * // => [1, 3, 5]
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'blocked': false },
+     *   { 'name': 'fred',   'age': 40, 'blocked': true }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.reject(characters, 'blocked');
+     * // => [{ 'name': 'barney', 'age': 36, 'blocked': false }]
+     *
+     * // using "_.where" callback shorthand
+     * _.reject(characters, { 'age': 36 });
+     * // => [{ 'name': 'fred', 'age': 40, 'blocked': true }]
+     */
+    function reject(collection, callback, thisArg) {
+      callback = lodash.createCallback(callback, thisArg, 3);
+      return filter(collection, function(value, index, collection) {
+        return !callback(value, index, collection);
+      });
+    }
+
+    /**
+     * Retrieves a random element or `n` random elements from a collection.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to sample.
+     * @param {number} [n] The number of elements to sample.
+     * @param- {Object} [guard] Allows working with functions like `_.map`
+     *  without using their `index` arguments as `n`.
+     * @returns {Array} Returns the random sample(s) of `collection`.
+     * @example
+     *
+     * _.sample([1, 2, 3, 4]);
+     * // => 2
+     *
+     * _.sample([1, 2, 3, 4], 2);
+     * // => [3, 1]
+     */
+    function sample(collection, n, guard) {
+      if (collection && typeof collection.length != 'number') {
+        collection = values(collection);
+      } else if (support.unindexedChars && isString(collection)) {
+        collection = collection.split('');
+      }
+      if (n == null || guard) {
+        return collection ? collection[baseRandom(0, collection.length - 1)] : undefined;
+      }
+      var result = shuffle(collection);
+      result.length = nativeMin(nativeMax(0, n), result.length);
+      return result;
+    }
+
+    /**
+     * Creates an array of shuffled values, using a version of the Fisher-Yates
+     * shuffle. See http://en.wikipedia.org/wiki/Fisher-Yates_shuffle.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to shuffle.
+     * @returns {Array} Returns a new shuffled collection.
+     * @example
+     *
+     * _.shuffle([1, 2, 3, 4, 5, 6]);
+     * // => [4, 1, 6, 3, 5, 2]
+     */
+    function shuffle(collection) {
+      var index = -1,
+          length = collection ? collection.length : 0,
+          result = Array(typeof length == 'number' ? length : 0);
+
+      forEach(collection, function(value) {
+        var rand = baseRandom(0, ++index);
+        result[index] = result[rand];
+        result[rand] = value;
+      });
+      return result;
+    }
+
+    /**
+     * Gets the size of the `collection` by returning `collection.length` for arrays
+     * and array-like objects or the number of own enumerable properties for objects.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to inspect.
+     * @returns {number} Returns `collection.length` or number of own enumerable properties.
+     * @example
+     *
+     * _.size([1, 2]);
+     * // => 2
+     *
+     * _.size({ 'one': 1, 'two': 2, 'three': 3 });
+     * // => 3
+     *
+     * _.size('pebbles');
+     * // => 7
+     */
+    function size(collection) {
+      var length = collection ? collection.length : 0;
+      return typeof length == 'number' ? length : keys(collection).length;
+    }
+
+    /**
+     * Checks if the callback returns a truey value for **any** element of a
+     * collection. The function returns as soon as it finds a passing value and
+     * does not iterate over the entire collection. The callback is bound to
+     * `thisArg` and invoked with three arguments; (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias any
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {boolean} Returns `true` if any element passed the callback check,
+     *  else `false`.
+     * @example
+     *
+     * _.some([null, 0, 'yes', false], Boolean);
+     * // => true
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'blocked': false },
+     *   { 'name': 'fred',   'age': 40, 'blocked': true }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.some(characters, 'blocked');
+     * // => true
+     *
+     * // using "_.where" callback shorthand
+     * _.some(characters, { 'age': 1 });
+     * // => false
+     */
+    function some(collection, callback, thisArg) {
+      var result;
+      callback = lodash.createCallback(callback, thisArg, 3);
+
+      if (isArray(collection)) {
+        var index = -1,
+            length = collection.length;
+
+        while (++index < length) {
+          if ((result = callback(collection[index], index, collection))) {
+            break;
+          }
+        }
+      } else {
+        baseEach(collection, function(value, index, collection) {
+          return !(result = callback(value, index, collection));
+        });
+      }
+      return !!result;
+    }
+
+    /**
+     * Creates an array of elements, sorted in ascending order by the results of
+     * running each element in a collection through the callback. This method
+     * performs a stable sort, that is, it will preserve the original sort order
+     * of equal elements. The callback is bound to `thisArg` and invoked with
+     * three arguments; (value, index|key, collection).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an array of property names is provided for `callback` the collection
+     * will be sorted by each property value.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Array|Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new array of sorted elements.
+     * @example
+     *
+     * _.sortBy([1, 2, 3], function(num) { return Math.sin(num); });
+     * // => [3, 1, 2]
+     *
+     * _.sortBy([1, 2, 3], function(num) { return this.sin(num); }, Math);
+     * // => [3, 1, 2]
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36 },
+     *   { 'name': 'fred',    'age': 40 },
+     *   { 'name': 'barney',  'age': 26 },
+     *   { 'name': 'fred',    'age': 30 }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.map(_.sortBy(characters, 'age'), _.values);
+     * // => [['barney', 26], ['fred', 30], ['barney', 36], ['fred', 40]]
+     *
+     * // sorting by multiple properties
+     * _.map(_.sortBy(characters, ['name', 'age']), _.values);
+     * // = > [['barney', 26], ['barney', 36], ['fred', 30], ['fred', 40]]
+     */
+    function sortBy(collection, callback, thisArg) {
+      var index = -1,
+          isArr = isArray(callback),
+          length = collection ? collection.length : 0,
+          result = Array(typeof length == 'number' ? length : 0);
+
+      if (!isArr) {
+        callback = lodash.createCallback(callback, thisArg, 3);
+      }
+      forEach(collection, function(value, key, collection) {
+        var object = result[++index] = getObject();
+        if (isArr) {
+          object.criteria = map(callback, function(key) { return value[key]; });
+        } else {
+          (object.criteria = getArray())[0] = callback(value, key, collection);
+        }
+        object.index = index;
+        object.value = value;
+      });
+
+      length = result.length;
+      result.sort(compareAscending);
+      while (length--) {
+        var object = result[length];
+        result[length] = object.value;
+        if (!isArr) {
+          releaseArray(object.criteria);
+        }
+        releaseObject(object);
+      }
+      return result;
+    }
+
+    /**
+     * Converts the `collection` to an array.
+     *
+     * @static
+     * @memberOf _
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to convert.
+     * @returns {Array} Returns the new converted array.
+     * @example
+     *
+     * (function() { return _.toArray(arguments).slice(1); })(1, 2, 3, 4);
+     * // => [2, 3, 4]
+     */
+    function toArray(collection) {
+      if (collection && typeof collection.length == 'number') {
+        return (support.unindexedChars && isString(collection))
+          ? collection.split('')
+          : slice(collection);
+      }
+      return values(collection);
+    }
+
+    /**
+     * Performs a deep comparison of each element in a `collection` to the given
+     * `properties` object, returning an array of all elements that have equivalent
+     * property values.
+     *
+     * @static
+     * @memberOf _
+     * @type Function
+     * @category Collections
+     * @param {Array|Object|string} collection The collection to iterate over.
+     * @param {Object} props The object of property values to filter by.
+     * @returns {Array} Returns a new array of elements that have the given properties.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'pets': ['hoppy'] },
+     *   { 'name': 'fred',   'age': 40, 'pets': ['baby puss', 'dino'] }
+     * ];
+     *
+     * _.where(characters, { 'age': 36 });
+     * // => [{ 'name': 'barney', 'age': 36, 'pets': ['hoppy'] }]
+     *
+     * _.where(characters, { 'pets': ['dino'] });
+     * // => [{ 'name': 'fred', 'age': 40, 'pets': ['baby puss', 'dino'] }]
+     */
+    var where = filter;
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Creates an array with all falsey values removed. The values `false`, `null`,
+     * `0`, `""`, `undefined`, and `NaN` are all falsey.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to compact.
+     * @returns {Array} Returns a new array of filtered values.
+     * @example
+     *
+     * _.compact([0, 1, false, 2, '', 3]);
+     * // => [1, 2, 3]
+     */
+    function compact(array) {
+      var index = -1,
+          length = array ? array.length : 0,
+          result = [];
+
+      while (++index < length) {
+        var value = array[index];
+        if (value) {
+          result.push(value);
+        }
+      }
+      return result;
+    }
+
+    /**
+     * Creates an array excluding all values of the provided arrays using strict
+     * equality for comparisons, i.e. `===`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to process.
+     * @param {...Array} [values] The arrays of values to exclude.
+     * @returns {Array} Returns a new array of filtered values.
+     * @example
+     *
+     * _.difference([1, 2, 3, 4, 5], [5, 2, 10]);
+     * // => [1, 3, 4]
+     */
+    function difference(array) {
+      return baseDifference(array, baseFlatten(arguments, true, true, 1));
+    }
+
+    /**
+     * This method is like `_.find` except that it returns the index of the first
+     * element that passes the callback check, instead of the element itself.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to search.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {number} Returns the index of the found element, else `-1`.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36, 'blocked': false },
+     *   { 'name': 'fred',    'age': 40, 'blocked': true },
+     *   { 'name': 'pebbles', 'age': 1,  'blocked': false }
+     * ];
+     *
+     * _.findIndex(characters, function(chr) {
+     *   return chr.age < 20;
+     * });
+     * // => 2
+     *
+     * // using "_.where" callback shorthand
+     * _.findIndex(characters, { 'age': 36 });
+     * // => 0
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findIndex(characters, 'blocked');
+     * // => 1
+     */
+    function findIndex(array, callback, thisArg) {
+      var index = -1,
+          length = array ? array.length : 0;
+
+      callback = lodash.createCallback(callback, thisArg, 3);
+      while (++index < length) {
+        if (callback(array[index], index, array)) {
+          return index;
+        }
+      }
+      return -1;
+    }
+
+    /**
+     * This method is like `_.findIndex` except that it iterates over elements
+     * of a `collection` from right to left.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to search.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {number} Returns the index of the found element, else `-1`.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36, 'blocked': true },
+     *   { 'name': 'fred',    'age': 40, 'blocked': false },
+     *   { 'name': 'pebbles', 'age': 1,  'blocked': true }
+     * ];
+     *
+     * _.findLastIndex(characters, function(chr) {
+     *   return chr.age > 30;
+     * });
+     * // => 1
+     *
+     * // using "_.where" callback shorthand
+     * _.findLastIndex(characters, { 'age': 36 });
+     * // => 0
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findLastIndex(characters, 'blocked');
+     * // => 2
+     */
+    function findLastIndex(array, callback, thisArg) {
+      var length = array ? array.length : 0;
+      callback = lodash.createCallback(callback, thisArg, 3);
+      while (length--) {
+        if (callback(array[length], length, array)) {
+          return length;
+        }
+      }
+      return -1;
+    }
+
+    /**
+     * Gets the first element or first `n` elements of an array. If a callback
+     * is provided elements at the beginning of the array are returned as long
+     * as the callback returns truey. The callback is bound to `thisArg` and
+     * invoked with three arguments; (value, index, array).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias head, take
+     * @category Arrays
+     * @param {Array} array The array to query.
+     * @param {Function|Object|number|string} [callback] The function called
+     *  per element or the number of elements to return. If a property name or
+     *  object is provided it will be used to create a "_.pluck" or "_.where"
+     *  style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the first element(s) of `array`.
+     * @example
+     *
+     * _.first([1, 2, 3]);
+     * // => 1
+     *
+     * _.first([1, 2, 3], 2);
+     * // => [1, 2]
+     *
+     * _.first([1, 2, 3], function(num) {
+     *   return num < 3;
+     * });
+     * // => [1, 2]
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': false, 'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true,  'employer': 'na' }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.first(characters, 'blocked');
+     * // => [{ 'name': 'barney', 'blocked': true, 'employer': 'slate' }]
+     *
+     * // using "_.where" callback shorthand
+     * _.pluck(_.first(characters, { 'employer': 'slate' }), 'name');
+     * // => ['barney', 'fred']
+     */
+    function first(array, callback, thisArg) {
+      var n = 0,
+          length = array ? array.length : 0;
+
+      if (typeof callback != 'number' && callback != null) {
+        var index = -1;
+        callback = lodash.createCallback(callback, thisArg, 3);
+        while (++index < length && callback(array[index], index, array)) {
+          n++;
+        }
+      } else {
+        n = callback;
+        if (n == null || thisArg) {
+          return array ? array[0] : undefined;
+        }
+      }
+      return slice(array, 0, nativeMin(nativeMax(0, n), length));
+    }
+
+    /**
+     * Flattens a nested array (the nesting can be to any depth). If `isShallow`
+     * is truey, the array will only be flattened a single level. If a callback
+     * is provided each element of the array is passed through the callback before
+     * flattening. The callback is bound to `thisArg` and invoked with three
+     * arguments; (value, index, array).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to flatten.
+     * @param {boolean} [isShallow=false] A flag to restrict flattening to a single level.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new flattened array.
+     * @example
+     *
+     * _.flatten([1, [2], [3, [[4]]]]);
+     * // => [1, 2, 3, 4];
+     *
+     * _.flatten([1, [2], [3, [[4]]]], true);
+     * // => [1, 2, 3, [[4]]];
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 30, 'pets': ['hoppy'] },
+     *   { 'name': 'fred',   'age': 40, 'pets': ['baby puss', 'dino'] }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.flatten(characters, 'pets');
+     * // => ['hoppy', 'baby puss', 'dino']
+     */
+    function flatten(array, isShallow, callback, thisArg) {
+      // juggle arguments
+      if (typeof isShallow != 'boolean' && isShallow != null) {
+        thisArg = callback;
+        callback = (typeof isShallow != 'function' && thisArg && thisArg[isShallow] === array) ? null : isShallow;
+        isShallow = false;
+      }
+      if (callback != null) {
+        array = map(array, callback, thisArg);
+      }
+      return baseFlatten(array, isShallow);
+    }
+
+    /**
+     * Gets the index at which the first occurrence of `value` is found using
+     * strict equality for comparisons, i.e. `===`. If the array is already sorted
+     * providing `true` for `fromIndex` will run a faster binary search.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to search.
+     * @param {*} value The value to search for.
+     * @param {boolean|number} [fromIndex=0] The index to search from or `true`
+     *  to perform a binary search on a sorted array.
+     * @returns {number} Returns the index of the matched value or `-1`.
+     * @example
+     *
+     * _.indexOf([1, 2, 3, 1, 2, 3], 2);
+     * // => 1
+     *
+     * _.indexOf([1, 2, 3, 1, 2, 3], 2, 3);
+     * // => 4
+     *
+     * _.indexOf([1, 1, 2, 2, 3, 3], 2, true);
+     * // => 2
+     */
+    function indexOf(array, value, fromIndex) {
+      if (typeof fromIndex == 'number') {
+        var length = array ? array.length : 0;
+        fromIndex = (fromIndex < 0 ? nativeMax(0, length + fromIndex) : fromIndex || 0);
+      } else if (fromIndex) {
+        var index = sortedIndex(array, value);
+        return array[index] === value ? index : -1;
+      }
+      return baseIndexOf(array, value, fromIndex);
+    }
+
+    /**
+     * Gets all but the last element or last `n` elements of an array. If a
+     * callback is provided elements at the end of the array are excluded from
+     * the result as long as the callback returns truey. The callback is bound
+     * to `thisArg` and invoked with three arguments; (value, index, array).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to query.
+     * @param {Function|Object|number|string} [callback=1] The function called
+     *  per element or the number of elements to exclude. If a property name or
+     *  object is provided it will be used to create a "_.pluck" or "_.where"
+     *  style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a slice of `array`.
+     * @example
+     *
+     * _.initial([1, 2, 3]);
+     * // => [1, 2]
+     *
+     * _.initial([1, 2, 3], 2);
+     * // => [1]
+     *
+     * _.initial([1, 2, 3], function(num) {
+     *   return num > 1;
+     * });
+     * // => [1]
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': false, 'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true,  'employer': 'na' }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.initial(characters, 'blocked');
+     * // => [{ 'name': 'barney',  'blocked': false, 'employer': 'slate' }]
+     *
+     * // using "_.where" callback shorthand
+     * _.pluck(_.initial(characters, { 'employer': 'na' }), 'name');
+     * // => ['barney', 'fred']
+     */
+    function initial(array, callback, thisArg) {
+      var n = 0,
+          length = array ? array.length : 0;
+
+      if (typeof callback != 'number' && callback != null) {
+        var index = length;
+        callback = lodash.createCallback(callback, thisArg, 3);
+        while (index-- && callback(array[index], index, array)) {
+          n++;
+        }
+      } else {
+        n = (callback == null || thisArg) ? 1 : callback || n;
+      }
+      return slice(array, 0, nativeMin(nativeMax(0, length - n), length));
+    }
+
+    /**
+     * Creates an array of unique values present in all provided arrays using
+     * strict equality for comparisons, i.e. `===`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {...Array} [array] The arrays to inspect.
+     * @returns {Array} Returns an array of shared values.
+     * @example
+     *
+     * _.intersection([1, 2, 3], [5, 2, 1, 4], [2, 1]);
+     * // => [1, 2]
+     */
+    function intersection() {
+      var args = [],
+          argsIndex = -1,
+          argsLength = arguments.length,
+          caches = getArray(),
+          indexOf = getIndexOf(),
+          trustIndexOf = indexOf === baseIndexOf,
+          seen = getArray();
+
+      while (++argsIndex < argsLength) {
+        var value = arguments[argsIndex];
+        if (isArray(value) || isArguments(value)) {
+          args.push(value);
+          caches.push(trustIndexOf && value.length >= largeArraySize &&
+            createCache(argsIndex ? args[argsIndex] : seen));
+        }
+      }
+      var array = args[0],
+          index = -1,
+          length = array ? array.length : 0,
+          result = [];
+
+      outer:
+      while (++index < length) {
+        var cache = caches[0];
+        value = array[index];
+
+        if ((cache ? cacheIndexOf(cache, value) : indexOf(seen, value)) < 0) {
+          argsIndex = argsLength;
+          (cache || seen).push(value);
+          while (--argsIndex) {
+            cache = caches[argsIndex];
+            if ((cache ? cacheIndexOf(cache, value) : indexOf(args[argsIndex], value)) < 0) {
+              continue outer;
+            }
+          }
+          result.push(value);
+        }
+      }
+      while (argsLength--) {
+        cache = caches[argsLength];
+        if (cache) {
+          releaseObject(cache);
+        }
+      }
+      releaseArray(caches);
+      releaseArray(seen);
+      return result;
+    }
+
+    /**
+     * Gets the last element or last `n` elements of an array. If a callback is
+     * provided elements at the end of the array are returned as long as the
+     * callback returns truey. The callback is bound to `thisArg` and invoked
+     * with three arguments; (value, index, array).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to query.
+     * @param {Function|Object|number|string} [callback] The function called
+     *  per element or the number of elements to return. If a property name or
+     *  object is provided it will be used to create a "_.pluck" or "_.where"
+     *  style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {*} Returns the last element(s) of `array`.
+     * @example
+     *
+     * _.last([1, 2, 3]);
+     * // => 3
+     *
+     * _.last([1, 2, 3], 2);
+     * // => [2, 3]
+     *
+     * _.last([1, 2, 3], function(num) {
+     *   return num > 1;
+     * });
+     * // => [2, 3]
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': false, 'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true,  'employer': 'na' }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.pluck(_.last(characters, 'blocked'), 'name');
+     * // => ['fred', 'pebbles']
+     *
+     * // using "_.where" callback shorthand
+     * _.last(characters, { 'employer': 'na' });
+     * // => [{ 'name': 'pebbles', 'blocked': true, 'employer': 'na' }]
+     */
+    function last(array, callback, thisArg) {
+      var n = 0,
+          length = array ? array.length : 0;
+
+      if (typeof callback != 'number' && callback != null) {
+        var index = length;
+        callback = lodash.createCallback(callback, thisArg, 3);
+        while (index-- && callback(array[index], index, array)) {
+          n++;
+        }
+      } else {
+        n = callback;
+        if (n == null || thisArg) {
+          return array ? array[length - 1] : undefined;
+        }
+      }
+      return slice(array, nativeMax(0, length - n));
+    }
+
+    /**
+     * Gets the index at which the last occurrence of `value` is found using strict
+     * equality for comparisons, i.e. `===`. If `fromIndex` is negative, it is used
+     * as the offset from the end of the collection.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to search.
+     * @param {*} value The value to search for.
+     * @param {number} [fromIndex=array.length-1] The index to search from.
+     * @returns {number} Returns the index of the matched value or `-1`.
+     * @example
+     *
+     * _.lastIndexOf([1, 2, 3, 1, 2, 3], 2);
+     * // => 4
+     *
+     * _.lastIndexOf([1, 2, 3, 1, 2, 3], 2, 3);
+     * // => 1
+     */
+    function lastIndexOf(array, value, fromIndex) {
+      var index = array ? array.length : 0;
+      if (typeof fromIndex == 'number') {
+        index = (fromIndex < 0 ? nativeMax(0, index + fromIndex) : nativeMin(fromIndex, index - 1)) + 1;
+      }
+      while (index--) {
+        if (array[index] === value) {
+          return index;
+        }
+      }
+      return -1;
+    }
+
+    /**
+     * Removes all provided values from the given array using strict equality for
+     * comparisons, i.e. `===`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to modify.
+     * @param {...*} [value] The values to remove.
+     * @returns {Array} Returns `array`.
+     * @example
+     *
+     * var array = [1, 2, 3, 1, 2, 3];
+     * _.pull(array, 2, 3);
+     * console.log(array);
+     * // => [1, 1]
+     */
+    function pull(array) {
+      var args = arguments,
+          argsIndex = 0,
+          argsLength = args.length,
+          length = array ? array.length : 0;
+
+      while (++argsIndex < argsLength) {
+        var index = -1,
+            value = args[argsIndex];
+        while (++index < length) {
+          if (array[index] === value) {
+            splice.call(array, index--, 1);
+            length--;
+          }
+        }
+      }
+      return array;
+    }
+
+    /**
+     * Creates an array of numbers (positive and/or negative) progressing from
+     * `start` up to but not including `end`. If `start` is less than `stop` a
+     * zero-length range is created unless a negative `step` is specified.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {number} [start=0] The start of the range.
+     * @param {number} end The end of the range.
+     * @param {number} [step=1] The value to increment or decrement by.
+     * @returns {Array} Returns a new range array.
+     * @example
+     *
+     * _.range(4);
+     * // => [0, 1, 2, 3]
+     *
+     * _.range(1, 5);
+     * // => [1, 2, 3, 4]
+     *
+     * _.range(0, 20, 5);
+     * // => [0, 5, 10, 15]
+     *
+     * _.range(0, -4, -1);
+     * // => [0, -1, -2, -3]
+     *
+     * _.range(1, 4, 0);
+     * // => [1, 1, 1]
+     *
+     * _.range(0);
+     * // => []
+     */
+    function range(start, end, step) {
+      start = +start || 0;
+      step = typeof step == 'number' ? step : (+step || 1);
+
+      if (end == null) {
+        end = start;
+        start = 0;
+      }
+      // use `Array(length)` so engines like Chakra and V8 avoid slower modes
+      // http://youtu.be/XAqIpGU8ZZk#t=17m25s
+      var index = -1,
+          length = nativeMax(0, ceil((end - start) / (step || 1))),
+          result = Array(length);
+
+      while (++index < length) {
+        result[index] = start;
+        start += step;
+      }
+      return result;
+    }
+
+    /**
+     * Removes all elements from an array that the callback returns truey for
+     * and returns an array of removed elements. The callback is bound to `thisArg`
+     * and invoked with three arguments; (value, index, array).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to modify.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new array of removed elements.
+     * @example
+     *
+     * var array = [1, 2, 3, 4, 5, 6];
+     * var evens = _.remove(array, function(num) { return num % 2 == 0; });
+     *
+     * console.log(array);
+     * // => [1, 3, 5]
+     *
+     * console.log(evens);
+     * // => [2, 4, 6]
+     */
+    function remove(array, callback, thisArg) {
+      var index = -1,
+          length = array ? array.length : 0,
+          result = [];
+
+      callback = lodash.createCallback(callback, thisArg, 3);
+      while (++index < length) {
+        var value = array[index];
+        if (callback(value, index, array)) {
+          result.push(value);
+          splice.call(array, index--, 1);
+          length--;
+        }
+      }
+      return result;
+    }
+
+    /**
+     * The opposite of `_.initial` this method gets all but the first element or
+     * first `n` elements of an array. If a callback function is provided elements
+     * at the beginning of the array are excluded from the result as long as the
+     * callback returns truey. The callback is bound to `thisArg` and invoked
+     * with three arguments; (value, index, array).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias drop, tail
+     * @category Arrays
+     * @param {Array} array The array to query.
+     * @param {Function|Object|number|string} [callback=1] The function called
+     *  per element or the number of elements to exclude. If a property name or
+     *  object is provided it will be used to create a "_.pluck" or "_.where"
+     *  style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a slice of `array`.
+     * @example
+     *
+     * _.rest([1, 2, 3]);
+     * // => [2, 3]
+     *
+     * _.rest([1, 2, 3], 2);
+     * // => [3]
+     *
+     * _.rest([1, 2, 3], function(num) {
+     *   return num < 3;
+     * });
+     * // => [3]
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': false,  'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true, 'employer': 'na' }
+     * ];
+     *
+     * // using "_.pluck" callback shorthand
+     * _.pluck(_.rest(characters, 'blocked'), 'name');
+     * // => ['fred', 'pebbles']
+     *
+     * // using "_.where" callback shorthand
+     * _.rest(characters, { 'employer': 'slate' });
+     * // => [{ 'name': 'pebbles', 'blocked': true, 'employer': 'na' }]
+     */
+    function rest(array, callback, thisArg) {
+      if (typeof callback != 'number' && callback != null) {
+        var n = 0,
+            index = -1,
+            length = array ? array.length : 0;
+
+        callback = lodash.createCallback(callback, thisArg, 3);
+        while (++index < length && callback(array[index], index, array)) {
+          n++;
+        }
+      } else {
+        n = (callback == null || thisArg) ? 1 : nativeMax(0, callback);
+      }
+      return slice(array, n);
+    }
+
+    /**
+     * Uses a binary search to determine the smallest index at which a value
+     * should be inserted into a given sorted array in order to maintain the sort
+     * order of the array. If a callback is provided it will be executed for
+     * `value` and each element of `array` to compute their sort ranking. The
+     * callback is bound to `thisArg` and invoked with one argument; (value).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to inspect.
+     * @param {*} value The value to evaluate.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {number} Returns the index at which `value` should be inserted
+     *  into `array`.
+     * @example
+     *
+     * _.sortedIndex([20, 30, 50], 40);
+     * // => 2
+     *
+     * // using "_.pluck" callback shorthand
+     * _.sortedIndex([{ 'x': 20 }, { 'x': 30 }, { 'x': 50 }], { 'x': 40 }, 'x');
+     * // => 2
+     *
+     * var dict = {
+     *   'wordToNumber': { 'twenty': 20, 'thirty': 30, 'fourty': 40, 'fifty': 50 }
+     * };
+     *
+     * _.sortedIndex(['twenty', 'thirty', 'fifty'], 'fourty', function(word) {
+     *   return dict.wordToNumber[word];
+     * });
+     * // => 2
+     *
+     * _.sortedIndex(['twenty', 'thirty', 'fifty'], 'fourty', function(word) {
+     *   return this.wordToNumber[word];
+     * }, dict);
+     * // => 2
+     */
+    function sortedIndex(array, value, callback, thisArg) {
+      var low = 0,
+          high = array ? array.length : low;
+
+      // explicitly reference `identity` for better inlining in Firefox
+      callback = callback ? lodash.createCallback(callback, thisArg, 1) : identity;
+      value = callback(value);
+
+      while (low < high) {
+        var mid = (low + high) >>> 1;
+        (callback(array[mid]) < value)
+          ? low = mid + 1
+          : high = mid;
+      }
+      return low;
+    }
+
+    /**
+     * Creates an array of unique values, in order, of the provided arrays using
+     * strict equality for comparisons, i.e. `===`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {...Array} [array] The arrays to inspect.
+     * @returns {Array} Returns an array of combined values.
+     * @example
+     *
+     * _.union([1, 2, 3], [5, 2, 1, 4], [2, 1]);
+     * // => [1, 2, 3, 5, 4]
+     */
+    function union() {
+      return baseUniq(baseFlatten(arguments, true, true));
+    }
+
+    /**
+     * Creates a duplicate-value-free version of an array using strict equality
+     * for comparisons, i.e. `===`. If the array is sorted, providing
+     * `true` for `isSorted` will use a faster algorithm. If a callback is provided
+     * each element of `array` is passed through the callback before uniqueness
+     * is computed. The callback is bound to `thisArg` and invoked with three
+     * arguments; (value, index, array).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @alias unique
+     * @category Arrays
+     * @param {Array} array The array to process.
+     * @param {boolean} [isSorted=false] A flag to indicate that `array` is sorted.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a duplicate-value-free array.
+     * @example
+     *
+     * _.uniq([1, 2, 1, 3, 1]);
+     * // => [1, 2, 3]
+     *
+     * _.uniq([1, 1, 2, 2, 3], true);
+     * // => [1, 2, 3]
+     *
+     * _.uniq(['A', 'b', 'C', 'a', 'B', 'c'], function(letter) { return letter.toLowerCase(); });
+     * // => ['A', 'b', 'C']
+     *
+     * _.uniq([1, 2.5, 3, 1.5, 2, 3.5], function(num) { return this.floor(num); }, Math);
+     * // => [1, 2.5, 3]
+     *
+     * // using "_.pluck" callback shorthand
+     * _.uniq([{ 'x': 1 }, { 'x': 2 }, { 'x': 1 }], 'x');
+     * // => [{ 'x': 1 }, { 'x': 2 }]
+     */
+    function uniq(array, isSorted, callback, thisArg) {
+      // juggle arguments
+      if (typeof isSorted != 'boolean' && isSorted != null) {
+        thisArg = callback;
+        callback = (typeof isSorted != 'function' && thisArg && thisArg[isSorted] === array) ? null : isSorted;
+        isSorted = false;
+      }
+      if (callback != null) {
+        callback = lodash.createCallback(callback, thisArg, 3);
+      }
+      return baseUniq(array, isSorted, callback);
+    }
+
+    /**
+     * Creates an array excluding all provided values using strict equality for
+     * comparisons, i.e. `===`.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {Array} array The array to filter.
+     * @param {...*} [value] The values to exclude.
+     * @returns {Array} Returns a new array of filtered values.
+     * @example
+     *
+     * _.without([1, 2, 1, 0, 3, 1, 4], 0, 1);
+     * // => [2, 3, 4]
+     */
+    function without(array) {
+      return baseDifference(array, slice(arguments, 1));
+    }
+
+    /**
+     * Creates an array that is the symmetric difference of the provided arrays.
+     * See http://en.wikipedia.org/wiki/Symmetric_difference.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {...Array} [array] The arrays to inspect.
+     * @returns {Array} Returns an array of values.
+     * @example
+     *
+     * _.xor([1, 2, 3], [5, 2, 1, 4]);
+     * // => [3, 5, 4]
+     *
+     * _.xor([1, 2, 5], [2, 3, 5], [3, 4, 5]);
+     * // => [1, 4, 5]
+     */
+    function xor() {
+      var index = -1,
+          length = arguments.length;
+
+      while (++index < length) {
+        var array = arguments[index];
+        if (isArray(array) || isArguments(array)) {
+          var result = result
+            ? baseUniq(baseDifference(result, array).concat(baseDifference(array, result)))
+            : array;
+        }
+      }
+      return result || [];
+    }
+
+    /**
+     * Creates an array of grouped elements, the first of which contains the first
+     * elements of the given arrays, the second of which contains the second
+     * elements of the given arrays, and so on.
+     *
+     * @static
+     * @memberOf _
+     * @alias unzip
+     * @category Arrays
+     * @param {...Array} [array] Arrays to process.
+     * @returns {Array} Returns a new array of grouped elements.
+     * @example
+     *
+     * _.zip(['fred', 'barney'], [30, 40], [true, false]);
+     * // => [['fred', 30, true], ['barney', 40, false]]
+     */
+    function zip() {
+      var array = arguments.length > 1 ? arguments : arguments[0],
+          index = -1,
+          length = array ? max(pluck(array, 'length')) : 0,
+          result = Array(length < 0 ? 0 : length);
+
+      while (++index < length) {
+        result[index] = pluck(array, index);
+      }
+      return result;
+    }
+
+    /**
+     * Creates an object composed from arrays of `keys` and `values`. Provide
+     * either a single two dimensional array, i.e. `[[key1, value1], [key2, value2]]`
+     * or two arrays, one of `keys` and one of corresponding `values`.
+     *
+     * @static
+     * @memberOf _
+     * @alias object
+     * @category Arrays
+     * @param {Array} keys The array of keys.
+     * @param {Array} [values=[]] The array of values.
+     * @returns {Object} Returns an object composed of the given keys and
+     *  corresponding values.
+     * @example
+     *
+     * _.zipObject(['fred', 'barney'], [30, 40]);
+     * // => { 'fred': 30, 'barney': 40 }
+     */
+    function zipObject(keys, values) {
+      var index = -1,
+          length = keys ? keys.length : 0,
+          result = {};
+
+      if (!values && length && !isArray(keys[0])) {
+        values = [];
+      }
+      while (++index < length) {
+        var key = keys[index];
+        if (values) {
+          result[key] = values[index];
+        } else if (key) {
+          result[key[0]] = key[1];
+        }
+      }
+      return result;
+    }
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Creates a function that executes `func`, with  the `this` binding and
+     * arguments of the created function, only after being called `n` times.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {number} n The number of times the function must be called before
+     *  `func` is executed.
+     * @param {Function} func The function to restrict.
+     * @returns {Function} Returns the new restricted function.
+     * @example
+     *
+     * var saves = ['profile', 'settings'];
+     *
+     * var done = _.after(saves.length, function() {
+     *   console.log('Done saving!');
+     * });
+     *
+     * _.forEach(saves, function(type) {
+     *   asyncSave({ 'type': type, 'complete': done });
+     * });
+     * // => logs 'Done saving!', after all saves have completed
+     */
+    function after(n, func) {
+      if (!isFunction(func)) {
+        throw new TypeError;
+      }
+      return function() {
+        if (--n < 1) {
+          return func.apply(this, arguments);
+        }
+      };
+    }
+
+    /**
+     * Creates a function that, when called, invokes `func` with the `this`
+     * binding of `thisArg` and prepends any additional `bind` arguments to those
+     * provided to the bound function.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to bind.
+     * @param {*} [thisArg] The `this` binding of `func`.
+     * @param {...*} [arg] Arguments to be partially applied.
+     * @returns {Function} Returns the new bound function.
+     * @example
+     *
+     * var func = function(greeting) {
+     *   return greeting + ' ' + this.name;
+     * };
+     *
+     * func = _.bind(func, { 'name': 'fred' }, 'hi');
+     * func();
+     * // => 'hi fred'
+     */
+    function bind(func, thisArg) {
+      return arguments.length > 2
+        ? createWrapper(func, 17, slice(arguments, 2), null, thisArg)
+        : createWrapper(func, 1, null, null, thisArg);
+    }
+
+    /**
+     * Binds methods of an object to the object itself, overwriting the existing
+     * method. Method names may be specified as individual arguments or as arrays
+     * of method names. If no method names are provided all the function properties
+     * of `object` will be bound.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Object} object The object to bind and assign the bound methods to.
+     * @param {...string} [methodName] The object method names to
+     *  bind, specified as individual method names or arrays of method names.
+     * @returns {Object} Returns `object`.
+     * @example
+     *
+     * var view = {
+     *   'label': 'docs',
+     *   'onClick': function() { console.log('clicked ' + this.label); }
+     * };
+     *
+     * _.bindAll(view);
+     * jQuery('#docs').on('click', view.onClick);
+     * // => logs 'clicked docs', when the button is clicked
+     */
+    function bindAll(object) {
+      var funcs = arguments.length > 1 ? baseFlatten(arguments, true, false, 1) : functions(object),
+          index = -1,
+          length = funcs.length;
+
+      while (++index < length) {
+        var key = funcs[index];
+        object[key] = createWrapper(object[key], 1, null, null, object);
+      }
+      return object;
+    }
+
+    /**
+     * Creates a function that, when called, invokes the method at `object[key]`
+     * and prepends any additional `bindKey` arguments to those provided to the bound
+     * function. This method differs from `_.bind` by allowing bound functions to
+     * reference methods that will be redefined or don't yet exist.
+     * See http://michaux.ca/articles/lazy-function-definition-pattern.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Object} object The object the method belongs to.
+     * @param {string} key The key of the method.
+     * @param {...*} [arg] Arguments to be partially applied.
+     * @returns {Function} Returns the new bound function.
+     * @example
+     *
+     * var object = {
+     *   'name': 'fred',
+     *   'greet': function(greeting) {
+     *     return greeting + ' ' + this.name;
+     *   }
+     * };
+     *
+     * var func = _.bindKey(object, 'greet', 'hi');
+     * func();
+     * // => 'hi fred'
+     *
+     * object.greet = function(greeting) {
+     *   return greeting + 'ya ' + this.name + '!';
+     * };
+     *
+     * func();
+     * // => 'hiya fred!'
+     */
+    function bindKey(object, key) {
+      return arguments.length > 2
+        ? createWrapper(key, 19, slice(arguments, 2), null, object)
+        : createWrapper(key, 3, null, null, object);
+    }
+
+    /**
+     * Creates a function that is the composition of the provided functions,
+     * where each function consumes the return value of the function that follows.
+     * For example, composing the functions `f()`, `g()`, and `h()` produces `f(g(h()))`.
+     * Each function is executed with the `this` binding of the composed function.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {...Function} [func] Functions to compose.
+     * @returns {Function} Returns the new composed function.
+     * @example
+     *
+     * var realNameMap = {
+     *   'pebbles': 'penelope'
+     * };
+     *
+     * var format = function(name) {
+     *   name = realNameMap[name.toLowerCase()] || name;
+     *   return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+     * };
+     *
+     * var greet = function(formatted) {
+     *   return 'Hiya ' + formatted + '!';
+     * };
+     *
+     * var welcome = _.compose(greet, format);
+     * welcome('pebbles');
+     * // => 'Hiya Penelope!'
+     */
+    function compose() {
+      var funcs = arguments,
+          length = funcs.length;
+
+      while (length--) {
+        if (!isFunction(funcs[length])) {
+          throw new TypeError;
+        }
+      }
+      return function() {
+        var args = arguments,
+            length = funcs.length;
+
+        while (length--) {
+          args = [funcs[length].apply(this, args)];
+        }
+        return args[0];
+      };
+    }
+
+    /**
+     * Creates a function which accepts one or more arguments of `func` that when
+     * invoked either executes `func` returning its result, if all `func` arguments
+     * have been provided, or returns a function that accepts one or more of the
+     * remaining `func` arguments, and so on. The arity of `func` can be specified
+     * if `func.length` is not sufficient.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to curry.
+     * @param {number} [arity=func.length] The arity of `func`.
+     * @returns {Function} Returns the new curried function.
+     * @example
+     *
+     * var curried = _.curry(function(a, b, c) {
+     *   console.log(a + b + c);
+     * });
+     *
+     * curried(1)(2)(3);
+     * // => 6
+     *
+     * curried(1, 2)(3);
+     * // => 6
+     *
+     * curried(1, 2, 3);
+     * // => 6
+     */
+    function curry(func, arity) {
+      arity = typeof arity == 'number' ? arity : (+arity || func.length);
+      return createWrapper(func, 4, null, null, null, arity);
+    }
+
+    /**
+     * Creates a function that will delay the execution of `func` until after
+     * `wait` milliseconds have elapsed since the last time it was invoked.
+     * Provide an options object to indicate that `func` should be invoked on
+     * the leading and/or trailing edge of the `wait` timeout. Subsequent calls
+     * to the debounced function will return the result of the last `func` call.
+     *
+     * Note: If `leading` and `trailing` options are `true` `func` will be called
+     * on the trailing edge of the timeout only if the the debounced function is
+     * invoked more than once during the `wait` timeout.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to debounce.
+     * @param {number} wait The number of milliseconds to delay.
+     * @param {Object} [options] The options object.
+     * @param {boolean} [options.leading=false] Specify execution on the leading edge of the timeout.
+     * @param {number} [options.maxWait] The maximum time `func` is allowed to be delayed before it's called.
+     * @param {boolean} [options.trailing=true] Specify execution on the trailing edge of the timeout.
+     * @returns {Function} Returns the new debounced function.
+     * @example
+     *
+     * // avoid costly calculations while the window size is in flux
+     * var lazyLayout = _.debounce(calculateLayout, 150);
+     * jQuery(window).on('resize', lazyLayout);
+     *
+     * // execute `sendMail` when the click event is fired, debouncing subsequent calls
+     * jQuery('#postbox').on('click', _.debounce(sendMail, 300, {
+     *   'leading': true,
+     *   'trailing': false
+     * });
+     *
+     * // ensure `batchLog` is executed once after 1 second of debounced calls
+     * var source = new EventSource('/stream');
+     * source.addEventListener('message', _.debounce(batchLog, 250, {
+     *   'maxWait': 1000
+     * }, false);
+     */
+    function debounce(func, wait, options) {
+      var args,
+          maxTimeoutId,
+          result,
+          stamp,
+          thisArg,
+          timeoutId,
+          trailingCall,
+          lastCalled = 0,
+          maxWait = false,
+          trailing = true;
+
+      if (!isFunction(func)) {
+        throw new TypeError;
+      }
+      wait = nativeMax(0, wait) || 0;
+      if (options === true) {
+        var leading = true;
+        trailing = false;
+      } else if (isObject(options)) {
+        leading = options.leading;
+        maxWait = 'maxWait' in options && (nativeMax(wait, options.maxWait) || 0);
+        trailing = 'trailing' in options ? options.trailing : trailing;
+      }
+      var delayed = function() {
+        var remaining = wait - (now() - stamp);
+        if (remaining <= 0) {
+          if (maxTimeoutId) {
+            clearTimeout(maxTimeoutId);
+          }
+          var isCalled = trailingCall;
+          maxTimeoutId = timeoutId = trailingCall = undefined;
+          if (isCalled) {
+            lastCalled = now();
+            result = func.apply(thisArg, args);
+            if (!timeoutId && !maxTimeoutId) {
+              args = thisArg = null;
+            }
+          }
+        } else {
+          timeoutId = setTimeout(delayed, remaining);
+        }
+      };
+
+      var maxDelayed = function() {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        maxTimeoutId = timeoutId = trailingCall = undefined;
+        if (trailing || (maxWait !== wait)) {
+          lastCalled = now();
+          result = func.apply(thisArg, args);
+          if (!timeoutId && !maxTimeoutId) {
+            args = thisArg = null;
+          }
+        }
+      };
+
+      return function() {
+        args = arguments;
+        stamp = now();
+        thisArg = this;
+        trailingCall = trailing && (timeoutId || !leading);
+
+        if (maxWait === false) {
+          var leadingCall = leading && !timeoutId;
+        } else {
+          if (!maxTimeoutId && !leading) {
+            lastCalled = stamp;
+          }
+          var remaining = maxWait - (stamp - lastCalled),
+              isCalled = remaining <= 0;
+
+          if (isCalled) {
+            if (maxTimeoutId) {
+              maxTimeoutId = clearTimeout(maxTimeoutId);
+            }
+            lastCalled = stamp;
+            result = func.apply(thisArg, args);
+          }
+          else if (!maxTimeoutId) {
+            maxTimeoutId = setTimeout(maxDelayed, remaining);
+          }
+        }
+        if (isCalled && timeoutId) {
+          timeoutId = clearTimeout(timeoutId);
+        }
+        else if (!timeoutId && wait !== maxWait) {
+          timeoutId = setTimeout(delayed, wait);
+        }
+        if (leadingCall) {
+          isCalled = true;
+          result = func.apply(thisArg, args);
+        }
+        if (isCalled && !timeoutId && !maxTimeoutId) {
+          args = thisArg = null;
+        }
+        return result;
+      };
+    }
+
+    /**
+     * Defers executing the `func` function until the current call stack has cleared.
+     * Additional arguments will be provided to `func` when it is invoked.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to defer.
+     * @param {...*} [arg] Arguments to invoke the function with.
+     * @returns {number} Returns the timer id.
+     * @example
+     *
+     * _.defer(function(text) { console.log(text); }, 'deferred');
+     * // logs 'deferred' after one or more milliseconds
+     */
+    function defer(func) {
+      if (!isFunction(func)) {
+        throw new TypeError;
+      }
+      var args = slice(arguments, 1);
+      return setTimeout(function() { func.apply(undefined, args); }, 1);
+    }
+
+    /**
+     * Executes the `func` function after `wait` milliseconds. Additional arguments
+     * will be provided to `func` when it is invoked.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to delay.
+     * @param {number} wait The number of milliseconds to delay execution.
+     * @param {...*} [arg] Arguments to invoke the function with.
+     * @returns {number} Returns the timer id.
+     * @example
+     *
+     * _.delay(function(text) { console.log(text); }, 1000, 'later');
+     * // => logs 'later' after one second
+     */
+    function delay(func, wait) {
+      if (!isFunction(func)) {
+        throw new TypeError;
+      }
+      var args = slice(arguments, 2);
+      return setTimeout(function() { func.apply(undefined, args); }, wait);
+    }
+
+    /**
+     * Creates a function that memoizes the result of `func`. If `resolver` is
+     * provided it will be used to determine the cache key for storing the result
+     * based on the arguments provided to the memoized function. By default, the
+     * first argument provided to the memoized function is used as the cache key.
+     * The `func` is executed with the `this` binding of the memoized function.
+     * The result cache is exposed as the `cache` property on the memoized function.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to have its output memoized.
+     * @param {Function} [resolver] A function used to resolve the cache key.
+     * @returns {Function} Returns the new memoizing function.
+     * @example
+     *
+     * var fibonacci = _.memoize(function(n) {
+     *   return n < 2 ? n : fibonacci(n - 1) + fibonacci(n - 2);
+     * });
+     *
+     * fibonacci(9)
+     * // => 34
+     *
+     * var data = {
+     *   'fred': { 'name': 'fred', 'age': 40 },
+     *   'pebbles': { 'name': 'pebbles', 'age': 1 }
+     * };
+     *
+     * // modifying the result cache
+     * var get = _.memoize(function(name) { return data[name]; }, _.identity);
+     * get('pebbles');
+     * // => { 'name': 'pebbles', 'age': 1 }
+     *
+     * get.cache.pebbles.name = 'penelope';
+     * get('pebbles');
+     * // => { 'name': 'penelope', 'age': 1 }
+     */
+    function memoize(func, resolver) {
+      if (!isFunction(func)) {
+        throw new TypeError;
+      }
+      var memoized = function() {
+        var cache = memoized.cache,
+            key = resolver ? resolver.apply(this, arguments) : keyPrefix + arguments[0];
+
+        return hasOwnProperty.call(cache, key)
+          ? cache[key]
+          : (cache[key] = func.apply(this, arguments));
+      }
+      memoized.cache = {};
+      return memoized;
+    }
+
+    /**
+     * Creates a function that is restricted to execute `func` once. Repeat calls to
+     * the function will return the value of the first call. The `func` is executed
+     * with the `this` binding of the created function.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to restrict.
+     * @returns {Function} Returns the new restricted function.
+     * @example
+     *
+     * var initialize = _.once(createApplication);
+     * initialize();
+     * initialize();
+     * // `initialize` executes `createApplication` once
+     */
+    function once(func) {
+      var ran,
+          result;
+
+      if (!isFunction(func)) {
+        throw new TypeError;
+      }
+      return function() {
+        if (ran) {
+          return result;
+        }
+        ran = true;
+        result = func.apply(this, arguments);
+
+        // clear the `func` variable so the function may be garbage collected
+        func = null;
+        return result;
+      };
+    }
+
+    /**
+     * Creates a function that, when called, invokes `func` with any additional
+     * `partial` arguments prepended to those provided to the new function. This
+     * method is similar to `_.bind` except it does **not** alter the `this` binding.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to partially apply arguments to.
+     * @param {...*} [arg] Arguments to be partially applied.
+     * @returns {Function} Returns the new partially applied function.
+     * @example
+     *
+     * var greet = function(greeting, name) { return greeting + ' ' + name; };
+     * var hi = _.partial(greet, 'hi');
+     * hi('fred');
+     * // => 'hi fred'
+     */
+    function partial(func) {
+      return createWrapper(func, 16, slice(arguments, 1));
+    }
+
+    /**
+     * This method is like `_.partial` except that `partial` arguments are
+     * appended to those provided to the new function.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to partially apply arguments to.
+     * @param {...*} [arg] Arguments to be partially applied.
+     * @returns {Function} Returns the new partially applied function.
+     * @example
+     *
+     * var defaultsDeep = _.partialRight(_.merge, _.defaults);
+     *
+     * var options = {
+     *   'variable': 'data',
+     *   'imports': { 'jq': $ }
+     * };
+     *
+     * defaultsDeep(options, _.templateSettings);
+     *
+     * options.variable
+     * // => 'data'
+     *
+     * options.imports
+     * // => { '_': _, 'jq': $ }
+     */
+    function partialRight(func) {
+      return createWrapper(func, 32, null, slice(arguments, 1));
+    }
+
+    /**
+     * Creates a function that, when executed, will only call the `func` function
+     * at most once per every `wait` milliseconds. Provide an options object to
+     * indicate that `func` should be invoked on the leading and/or trailing edge
+     * of the `wait` timeout. Subsequent calls to the throttled function will
+     * return the result of the last `func` call.
+     *
+     * Note: If `leading` and `trailing` options are `true` `func` will be called
+     * on the trailing edge of the timeout only if the the throttled function is
+     * invoked more than once during the `wait` timeout.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {Function} func The function to throttle.
+     * @param {number} wait The number of milliseconds to throttle executions to.
+     * @param {Object} [options] The options object.
+     * @param {boolean} [options.leading=true] Specify execution on the leading edge of the timeout.
+     * @param {boolean} [options.trailing=true] Specify execution on the trailing edge of the timeout.
+     * @returns {Function} Returns the new throttled function.
+     * @example
+     *
+     * // avoid excessively updating the position while scrolling
+     * var throttled = _.throttle(updatePosition, 100);
+     * jQuery(window).on('scroll', throttled);
+     *
+     * // execute `renewToken` when the click event is fired, but not more than once every 5 minutes
+     * jQuery('.interactive').on('click', _.throttle(renewToken, 300000, {
+     *   'trailing': false
+     * }));
+     */
+    function throttle(func, wait, options) {
+      var leading = true,
+          trailing = true;
+
+      if (!isFunction(func)) {
+        throw new TypeError;
+      }
+      if (options === false) {
+        leading = false;
+      } else if (isObject(options)) {
+        leading = 'leading' in options ? options.leading : leading;
+        trailing = 'trailing' in options ? options.trailing : trailing;
+      }
+      debounceOptions.leading = leading;
+      debounceOptions.maxWait = wait;
+      debounceOptions.trailing = trailing;
+
+      return debounce(func, wait, debounceOptions);
+    }
+
+    /**
+     * Creates a function that provides `value` to the wrapper function as its
+     * first argument. Additional arguments provided to the function are appended
+     * to those provided to the wrapper function. The wrapper is executed with
+     * the `this` binding of the created function.
+     *
+     * @static
+     * @memberOf _
+     * @category Functions
+     * @param {*} value The value to wrap.
+     * @param {Function} wrapper The wrapper function.
+     * @returns {Function} Returns the new function.
+     * @example
+     *
+     * var p = _.wrap(_.escape, function(func, text) {
+     *   return '<p>' + func(text) + '</p>';
+     * });
+     *
+     * p('Fred, Wilma, & Pebbles');
+     * // => '<p>Fred, Wilma, &amp; Pebbles</p>'
+     */
+    function wrap(value, wrapper) {
+      return createWrapper(wrapper, 16, [value]);
+    }
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Creates a function that returns `value`.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {*} value The value to return from the new function.
+     * @returns {Function} Returns the new function.
+     * @example
+     *
+     * var object = { 'name': 'fred' };
+     * var getter = _.constant(object);
+     * getter() === object;
+     * // => true
+     */
+    function constant(value) {
+      return function() {
+        return value;
+      };
+    }
+
+    /**
+     * Produces a callback bound to an optional `thisArg`. If `func` is a property
+     * name the created callback will return the property value for a given element.
+     * If `func` is an object the created callback will return `true` for elements
+     * that contain the equivalent object properties, otherwise it will return `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {*} [func=identity] The value to convert to a callback.
+     * @param {*} [thisArg] The `this` binding of the created callback.
+     * @param {number} [argCount] The number of arguments the callback accepts.
+     * @returns {Function} Returns a callback function.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * // wrap to create custom callback shorthands
+     * _.createCallback = _.wrap(_.createCallback, function(func, callback, thisArg) {
+     *   var match = /^(.+?)__([gl]t)(.+)$/.exec(callback);
+     *   return !match ? func(callback, thisArg) : function(object) {
+     *     return match[2] == 'gt' ? object[match[1]] > match[3] : object[match[1]] < match[3];
+     *   };
+     * });
+     *
+     * _.filter(characters, 'age__gt38');
+     * // => [{ 'name': 'fred', 'age': 40 }]
+     */
+    function createCallback(func, thisArg, argCount) {
+      var type = typeof func;
+      if (func == null || type == 'function') {
+        return baseCreateCallback(func, thisArg, argCount);
+      }
+      // handle "_.pluck" style callback shorthands
+      if (type != 'object') {
+        return property(func);
+      }
+      var props = keys(func),
+          key = props[0],
+          a = func[key];
+
+      // handle "_.where" style callback shorthands
+      if (props.length == 1 && a === a && !isObject(a)) {
+        // fast path the common case of providing an object with a single
+        // property containing a primitive value
+        return function(object) {
+          var b = object[key];
+          return a === b && (a !== 0 || (1 / a == 1 / b));
+        };
+      }
+      return function(object) {
+        var length = props.length,
+            result = false;
+
+        while (length--) {
+          if (!(result = baseIsEqual(object[props[length]], func[props[length]], null, true))) {
+            break;
+          }
+        }
+        return result;
+      };
+    }
+
+    /**
+     * Converts the characters `&`, `<`, `>`, `"`, and `'` in `string` to their
+     * corresponding HTML entities.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {string} string The string to escape.
+     * @returns {string} Returns the escaped string.
+     * @example
+     *
+     * _.escape('Fred, Wilma, & Pebbles');
+     * // => 'Fred, Wilma, &amp; Pebbles'
+     */
+    function escape(string) {
+      return string == null ? '' : String(string).replace(reUnescapedHtml, escapeHtmlChar);
+    }
+
+    /**
+     * This method returns the first argument provided to it.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {*} value Any value.
+     * @returns {*} Returns `value`.
+     * @example
+     *
+     * var object = { 'name': 'fred' };
+     * _.identity(object) === object;
+     * // => true
+     */
+    function identity(value) {
+      return value;
+    }
+
+    /**
+     * Adds function properties of a source object to the destination object.
+     * If `object` is a function methods will be added to its prototype as well.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {Function|Object} [object=lodash] object The destination object.
+     * @param {Object} source The object of functions to add.
+     * @param {Object} [options] The options object.
+     * @param {boolean} [options.chain=true] Specify whether the functions added are chainable.
+     * @example
+     *
+     * function capitalize(string) {
+     *   return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+     * }
+     *
+     * _.mixin({ 'capitalize': capitalize });
+     * _.capitalize('fred');
+     * // => 'Fred'
+     *
+     * _('fred').capitalize().value();
+     * // => 'Fred'
+     *
+     * _.mixin({ 'capitalize': capitalize }, { 'chain': false });
+     * _('fred').capitalize();
+     * // => 'Fred'
+     */
+    function mixin(object, source, options) {
+      var chain = true,
+          methodNames = source && functions(source);
+
+      if (!source || (!options && !methodNames.length)) {
+        if (options == null) {
+          options = source;
+        }
+        ctor = lodashWrapper;
+        source = object;
+        object = lodash;
+        methodNames = functions(source);
+      }
+      if (options === false) {
+        chain = false;
+      } else if (isObject(options) && 'chain' in options) {
+        chain = options.chain;
+      }
+      var ctor = object,
+          isFunc = isFunction(ctor);
+
+      forEach(methodNames, function(methodName) {
+        var func = object[methodName] = source[methodName];
+        if (isFunc) {
+          ctor.prototype[methodName] = function() {
+            var chainAll = this.__chain__,
+                value = this.__wrapped__,
+                args = [value];
+
+            push.apply(args, arguments);
+            var result = func.apply(object, args);
+            if (chain || chainAll) {
+              if (value === result && isObject(result)) {
+                return this;
+              }
+              result = new ctor(result);
+              result.__chain__ = chainAll;
+            }
+            return result;
+          };
+        }
+      });
+    }
+
+    /**
+     * Reverts the '_' variable to its previous value and returns a reference to
+     * the `lodash` function.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @returns {Function} Returns the `lodash` function.
+     * @example
+     *
+     * var lodash = _.noConflict();
+     */
+    function noConflict() {
+      context._ = oldDash;
+      return this;
+    }
+
+    /**
+     * A no-operation function.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @example
+     *
+     * var object = { 'name': 'fred' };
+     * _.noop(object) === undefined;
+     * // => true
+     */
+    function noop() {
+      // no operation performed
+    }
+
+    /**
+     * Gets the number of milliseconds that have elapsed since the Unix epoch
+     * (1 January 1970 00:00:00 UTC).
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @example
+     *
+     * var stamp = _.now();
+     * _.defer(function() { console.log(_.now() - stamp); });
+     * // => logs the number of milliseconds it took for the deferred function to be called
+     */
+    var now = isNative(now = Date.now) && now || function() {
+      return new Date().getTime();
+    };
+
+    /**
+     * Converts the given value into an integer of the specified radix.
+     * If `radix` is `undefined` or `0` a `radix` of `10` is used unless the
+     * `value` is a hexadecimal, in which case a `radix` of `16` is used.
+     *
+     * Note: This method avoids differences in native ES3 and ES5 `parseInt`
+     * implementations. See http://es5.github.io/#E.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {string} value The value to parse.
+     * @param {number} [radix] The radix used to interpret the value to parse.
+     * @returns {number} Returns the new integer value.
+     * @example
+     *
+     * _.parseInt('08');
+     * // => 8
+     */
+    var parseInt = nativeParseInt(whitespace + '08') == 8 ? nativeParseInt : function(value, radix) {
+      // Firefox < 21 and Opera < 15 follow the ES3 specified implementation of `parseInt`
+      return nativeParseInt(isString(value) ? value.replace(reLeadingSpacesAndZeros, '') : value, radix || 0);
+    };
+
+    /**
+     * Creates a "_.pluck" style function, which returns the `key` value of a
+     * given object.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {string} key The name of the property to retrieve.
+     * @returns {Function} Returns the new function.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'fred',   'age': 40 },
+     *   { 'name': 'barney', 'age': 36 }
+     * ];
+     *
+     * var getName = _.property('name');
+     *
+     * _.map(characters, getName);
+     * // => ['barney', 'fred']
+     *
+     * _.sortBy(characters, getName);
+     * // => [{ 'name': 'barney', 'age': 36 }, { 'name': 'fred',   'age': 40 }]
+     */
+    function property(key) {
+      return function(object) {
+        return object[key];
+      };
+    }
+
+    /**
+     * Produces a random number between `min` and `max` (inclusive). If only one
+     * argument is provided a number between `0` and the given number will be
+     * returned. If `floating` is truey or either `min` or `max` are floats a
+     * floating-point number will be returned instead of an integer.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {number} [min=0] The minimum possible value.
+     * @param {number} [max=1] The maximum possible value.
+     * @param {boolean} [floating=false] Specify returning a floating-point number.
+     * @returns {number} Returns a random number.
+     * @example
+     *
+     * _.random(0, 5);
+     * // => an integer between 0 and 5
+     *
+     * _.random(5);
+     * // => also an integer between 0 and 5
+     *
+     * _.random(5, true);
+     * // => a floating-point number between 0 and 5
+     *
+     * _.random(1.2, 5.2);
+     * // => a floating-point number between 1.2 and 5.2
+     */
+    function random(min, max, floating) {
+      var noMin = min == null,
+          noMax = max == null;
+
+      if (floating == null) {
+        if (typeof min == 'boolean' && noMax) {
+          floating = min;
+          min = 1;
+        }
+        else if (!noMax && typeof max == 'boolean') {
+          floating = max;
+          noMax = true;
+        }
+      }
+      if (noMin && noMax) {
+        max = 1;
+      }
+      min = +min || 0;
+      if (noMax) {
+        max = min;
+        min = 0;
+      } else {
+        max = +max || 0;
+      }
+      if (floating || min % 1 || max % 1) {
+        var rand = nativeRandom();
+        return nativeMin(min + (rand * (max - min + parseFloat('1e-' + ((rand +'').length - 1)))), max);
+      }
+      return baseRandom(min, max);
+    }
+
+    /**
+     * Resolves the value of property `key` on `object`. If `key` is a function
+     * it will be invoked with the `this` binding of `object` and its result returned,
+     * else the property value is returned. If `object` is falsey then `undefined`
+     * is returned.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {Object} object The object to inspect.
+     * @param {string} key The name of the property to resolve.
+     * @returns {*} Returns the resolved value.
+     * @example
+     *
+     * var object = {
+     *   'cheese': 'crumpets',
+     *   'stuff': function() {
+     *     return 'nonsense';
+     *   }
+     * };
+     *
+     * _.result(object, 'cheese');
+     * // => 'crumpets'
+     *
+     * _.result(object, 'stuff');
+     * // => 'nonsense'
+     */
+    function result(object, key) {
+      if (object) {
+        var value = object[key];
+        return isFunction(value) ? object[key]() : value;
+      }
+    }
+
+    /**
+     * A micro-templating method that handles arbitrary delimiters, preserves
+     * whitespace, and correctly escapes quotes within interpolated code.
+     *
+     * Note: In the development build, `_.template` utilizes sourceURLs for easier
+     * debugging. See http://www.html5rocks.com/en/tutorials/developertools/sourcemaps/#toc-sourceurl
+     *
+     * For more information on precompiling templates see:
+     * http://lodash.com/custom-builds
+     *
+     * For more information on Chrome extension sandboxes see:
+     * http://developer.chrome.com/stable/extensions/sandboxingEval.html
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {string} text The template text.
+     * @param {Object} data The data object used to populate the text.
+     * @param {Object} [options] The options object.
+     * @param {RegExp} [options.escape] The "escape" delimiter.
+     * @param {RegExp} [options.evaluate] The "evaluate" delimiter.
+     * @param {Object} [options.imports] An object to import into the template as local variables.
+     * @param {RegExp} [options.interpolate] The "interpolate" delimiter.
+     * @param {string} [sourceURL] The sourceURL of the template's compiled source.
+     * @param {string} [variable] The data object variable name.
+     * @returns {Function|string} Returns a compiled function when no `data` object
+     *  is given, else it returns the interpolated text.
+     * @example
+     *
+     * // using the "interpolate" delimiter to create a compiled template
+     * var compiled = _.template('hello <%= name %>');
+     * compiled({ 'name': 'fred' });
+     * // => 'hello fred'
+     *
+     * // using the "escape" delimiter to escape HTML in data property values
+     * _.template('<b><%- value %></b>', { 'value': '<script>' });
+     * // => '<b>&lt;script&gt;</b>'
+     *
+     * // using the "evaluate" delimiter to generate HTML
+     * var list = '<% _.forEach(people, function(name) { %><li><%- name %></li><% }); %>';
+     * _.template(list, { 'people': ['fred', 'barney'] });
+     * // => '<li>fred</li><li>barney</li>'
+     *
+     * // using the ES6 delimiter as an alternative to the default "interpolate" delimiter
+     * _.template('hello ${ name }', { 'name': 'pebbles' });
+     * // => 'hello pebbles'
+     *
+     * // using the internal `print` function in "evaluate" delimiters
+     * _.template('<% print("hello " + name); %>!', { 'name': 'barney' });
+     * // => 'hello barney!'
+     *
+     * // using a custom template delimiters
+     * _.templateSettings = {
+     *   'interpolate': /{{([\s\S]+?)}}/g
+     * };
+     *
+     * _.template('hello {{ name }}!', { 'name': 'mustache' });
+     * // => 'hello mustache!'
+     *
+     * // using the `imports` option to import jQuery
+     * var list = '<% jq.each(people, function(name) { %><li><%- name %></li><% }); %>';
+     * _.template(list, { 'people': ['fred', 'barney'] }, { 'imports': { 'jq': jQuery } });
+     * // => '<li>fred</li><li>barney</li>'
+     *
+     * // using the `sourceURL` option to specify a custom sourceURL for the template
+     * var compiled = _.template('hello <%= name %>', null, { 'sourceURL': '/basic/greeting.jst' });
+     * compiled(data);
+     * // => find the source of "greeting.jst" under the Sources tab or Resources panel of the web inspector
+     *
+     * // using the `variable` option to ensure a with-statement isn't used in the compiled template
+     * var compiled = _.template('hi <%= data.name %>!', null, { 'variable': 'data' });
+     * compiled.source;
+     * // => function(data) {
+     *   var __t, __p = '', __e = _.escape;
+     *   __p += 'hi ' + ((__t = ( data.name )) == null ? '' : __t) + '!';
+     *   return __p;
+     * }
+     *
+     * // using the `source` property to inline compiled templates for meaningful
+     * // line numbers in error messages and a stack trace
+     * fs.writeFileSync(path.join(cwd, 'jst.js'), '\
+     *   var JST = {\
+     *     "main": ' + _.template(mainText).source + '\
+     *   };\
+     * ');
+     */
+    function template(text, data, options) {
+      // based on John Resig's `tmpl` implementation
+      // http://ejohn.org/blog/javascript-micro-templating/
+      // and Laura Doktorova's doT.js
+      // https://github.com/olado/doT
+      var settings = lodash.templateSettings;
+      text = String(text || '');
+
+      // avoid missing dependencies when `iteratorTemplate` is not defined
+      options = defaults({}, options, settings);
+
+      var imports = defaults({}, options.imports, settings.imports),
+          importsKeys = keys(imports),
+          importsValues = values(imports);
+
+      var isEvaluating,
+          index = 0,
+          interpolate = options.interpolate || reNoMatch,
+          source = "__p += '";
+
+      // compile the regexp to match each delimiter
+      var reDelimiters = RegExp(
+        (options.escape || reNoMatch).source + '|' +
+        interpolate.source + '|' +
+        (interpolate === reInterpolate ? reEsTemplate : reNoMatch).source + '|' +
+        (options.evaluate || reNoMatch).source + '|$'
+      , 'g');
+
+      text.replace(reDelimiters, function(match, escapeValue, interpolateValue, esTemplateValue, evaluateValue, offset) {
+        interpolateValue || (interpolateValue = esTemplateValue);
+
+        // escape characters that cannot be included in string literals
+        source += text.slice(index, offset).replace(reUnescapedString, escapeStringChar);
+
+        // replace delimiters with snippets
+        if (escapeValue) {
+          source += "' +\n__e(" + escapeValue + ") +\n'";
+        }
+        if (evaluateValue) {
+          isEvaluating = true;
+          source += "';\n" + evaluateValue + ";\n__p += '";
+        }
+        if (interpolateValue) {
+          source += "' +\n((__t = (" + interpolateValue + ")) == null ? '' : __t) +\n'";
+        }
+        index = offset + match.length;
+
+        // the JS engine embedded in Adobe products requires returning the `match`
+        // string in order to produce the correct `offset` value
+        return match;
+      });
+
+      source += "';\n";
+
+      // if `variable` is not specified, wrap a with-statement around the generated
+      // code to add the data object to the top of the scope chain
+      var variable = options.variable,
+          hasVariable = variable;
+
+      if (!hasVariable) {
+        variable = 'obj';
+        source = 'with (' + variable + ') {\n' + source + '\n}\n';
+      }
+      // cleanup code by stripping empty strings
+      source = (isEvaluating ? source.replace(reEmptyStringLeading, '') : source)
+        .replace(reEmptyStringMiddle, '$1')
+        .replace(reEmptyStringTrailing, '$1;');
+
+      // frame code as the function body
+      source = 'function(' + variable + ') {\n' +
+        (hasVariable ? '' : variable + ' || (' + variable + ' = {});\n') +
+        "var __t, __p = '', __e = _.escape" +
+        (isEvaluating
+          ? ', __j = Array.prototype.join;\n' +
+            "function print() { __p += __j.call(arguments, '') }\n"
+          : ';\n'
+        ) +
+        source +
+        'return __p\n}';
+
+      // Use a sourceURL for easier debugging.
+      // http://www.html5rocks.com/en/tutorials/developertools/sourcemaps/#toc-sourceurl
+      var sourceURL = '\n/*\n//# sourceURL=' + (options.sourceURL || '/lodash/template/source[' + (templateCounter++) + ']') + '\n*/';
+
+      try {
+        var result = Function(importsKeys, 'return ' + source + sourceURL).apply(undefined, importsValues);
+      } catch(e) {
+        e.source = source;
+        throw e;
+      }
+      if (data) {
+        return result(data);
+      }
+      // provide the compiled function's source by its `toString` method, in
+      // supported environments, or the `source` property as a convenience for
+      // inlining compiled templates during the build process
+      result.source = source;
+      return result;
+    }
+
+    /**
+     * Executes the callback `n` times, returning an array of the results
+     * of each callback execution. The callback is bound to `thisArg` and invoked
+     * with one argument; (index).
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {number} n The number of times to execute the callback.
+     * @param {Function} callback The function called per iteration.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns an array of the results of each `callback` execution.
+     * @example
+     *
+     * var diceRolls = _.times(3, _.partial(_.random, 1, 6));
+     * // => [3, 6, 4]
+     *
+     * _.times(3, function(n) { mage.castSpell(n); });
+     * // => calls `mage.castSpell(n)` three times, passing `n` of `0`, `1`, and `2` respectively
+     *
+     * _.times(3, function(n) { this.cast(n); }, mage);
+     * // => also calls `mage.castSpell(n)` three times
+     */
+    function times(n, callback, thisArg) {
+      n = (n = +n) > -1 ? n : 0;
+      var index = -1,
+          result = Array(n);
+
+      callback = baseCreateCallback(callback, thisArg, 1);
+      while (++index < n) {
+        result[index] = callback(index);
+      }
+      return result;
+    }
+
+    /**
+     * The inverse of `_.escape` this method converts the HTML entities
+     * `&amp;`, `&lt;`, `&gt;`, `&quot;`, and `&#39;` in `string` to their
+     * corresponding characters.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {string} string The string to unescape.
+     * @returns {string} Returns the unescaped string.
+     * @example
+     *
+     * _.unescape('Fred, Barney &amp; Pebbles');
+     * // => 'Fred, Barney & Pebbles'
+     */
+    function unescape(string) {
+      return string == null ? '' : String(string).replace(reEscapedHtml, unescapeHtmlChar);
+    }
+
+    /**
+     * Generates a unique ID. If `prefix` is provided the ID will be appended to it.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {string} [prefix] The value to prefix the ID with.
+     * @returns {string} Returns the unique ID.
+     * @example
+     *
+     * _.uniqueId('contact_');
+     * // => 'contact_104'
+     *
+     * _.uniqueId();
+     * // => '105'
+     */
+    function uniqueId(prefix) {
+      var id = ++idCounter;
+      return String(prefix == null ? '' : prefix) + id;
+    }
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * Creates a `lodash` object that wraps the given value with explicit
+     * method chaining enabled.
+     *
+     * @static
+     * @memberOf _
+     * @category Chaining
+     * @param {*} value The value to wrap.
+     * @returns {Object} Returns the wrapper object.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36 },
+     *   { 'name': 'fred',    'age': 40 },
+     *   { 'name': 'pebbles', 'age': 1 }
+     * ];
+     *
+     * var youngest = _.chain(characters)
+     *     .sortBy('age')
+     *     .map(function(chr) { return chr.name + ' is ' + chr.age; })
+     *     .first()
+     *     .value();
+     * // => 'pebbles is 1'
+     */
+    function chain(value) {
+      value = new lodashWrapper(value);
+      value.__chain__ = true;
+      return value;
+    }
+
+    /**
+     * Invokes `interceptor` with the `value` as the first argument and then
+     * returns `value`. The purpose of this method is to "tap into" a method
+     * chain in order to perform operations on intermediate results within
+     * the chain.
+     *
+     * @static
+     * @memberOf _
+     * @category Chaining
+     * @param {*} value The value to provide to `interceptor`.
+     * @param {Function} interceptor The function to invoke.
+     * @returns {*} Returns `value`.
+     * @example
+     *
+     * _([1, 2, 3, 4])
+     *  .tap(function(array) { array.pop(); })
+     *  .reverse()
+     *  .value();
+     * // => [3, 2, 1]
+     */
+    function tap(value, interceptor) {
+      interceptor(value);
+      return value;
+    }
+
+    /**
+     * Enables explicit method chaining on the wrapper object.
+     *
+     * @name chain
+     * @memberOf _
+     * @category Chaining
+     * @returns {*} Returns the wrapper object.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * // without explicit chaining
+     * _(characters).first();
+     * // => { 'name': 'barney', 'age': 36 }
+     *
+     * // with explicit chaining
+     * _(characters).chain()
+     *   .first()
+     *   .pick('age')
+     *   .value();
+     * // => { 'age': 36 }
+     */
+    function wrapperChain() {
+      this.__chain__ = true;
+      return this;
+    }
+
+    /**
+     * Produces the `toString` result of the wrapped value.
+     *
+     * @name toString
+     * @memberOf _
+     * @category Chaining
+     * @returns {string} Returns the string result.
+     * @example
+     *
+     * _([1, 2, 3]).toString();
+     * // => '1,2,3'
+     */
+    function wrapperToString() {
+      return String(this.__wrapped__);
+    }
+
+    /**
+     * Extracts the wrapped value.
+     *
+     * @name valueOf
+     * @memberOf _
+     * @alias value
+     * @category Chaining
+     * @returns {*} Returns the wrapped value.
+     * @example
+     *
+     * _([1, 2, 3]).valueOf();
+     * // => [1, 2, 3]
+     */
+    function wrapperValueOf() {
+      return this.__wrapped__;
+    }
+
+    /*--------------------------------------------------------------------------*/
+
+    // add functions that return wrapped values when chaining
+    lodash.after = after;
+    lodash.assign = assign;
+    lodash.at = at;
+    lodash.bind = bind;
+    lodash.bindAll = bindAll;
+    lodash.bindKey = bindKey;
+    lodash.chain = chain;
+    lodash.compact = compact;
+    lodash.compose = compose;
+    lodash.constant = constant;
+    lodash.countBy = countBy;
+    lodash.create = create;
+    lodash.createCallback = createCallback;
+    lodash.curry = curry;
+    lodash.debounce = debounce;
+    lodash.defaults = defaults;
+    lodash.defer = defer;
+    lodash.delay = delay;
+    lodash.difference = difference;
+    lodash.filter = filter;
+    lodash.flatten = flatten;
+    lodash.forEach = forEach;
+    lodash.forEachRight = forEachRight;
+    lodash.forIn = forIn;
+    lodash.forInRight = forInRight;
+    lodash.forOwn = forOwn;
+    lodash.forOwnRight = forOwnRight;
+    lodash.functions = functions;
+    lodash.groupBy = groupBy;
+    lodash.indexBy = indexBy;
+    lodash.initial = initial;
+    lodash.intersection = intersection;
+    lodash.invert = invert;
+    lodash.invoke = invoke;
+    lodash.keys = keys;
+    lodash.map = map;
+    lodash.mapValues = mapValues;
+    lodash.max = max;
+    lodash.memoize = memoize;
+    lodash.merge = merge;
+    lodash.min = min;
+    lodash.omit = omit;
+    lodash.once = once;
+    lodash.pairs = pairs;
+    lodash.partial = partial;
+    lodash.partialRight = partialRight;
+    lodash.pick = pick;
+    lodash.pluck = pluck;
+    lodash.property = property;
+    lodash.pull = pull;
+    lodash.range = range;
+    lodash.reject = reject;
+    lodash.remove = remove;
+    lodash.rest = rest;
+    lodash.shuffle = shuffle;
+    lodash.sortBy = sortBy;
+    lodash.tap = tap;
+    lodash.throttle = throttle;
+    lodash.times = times;
+    lodash.toArray = toArray;
+    lodash.transform = transform;
+    lodash.union = union;
+    lodash.uniq = uniq;
+    lodash.values = values;
+    lodash.where = where;
+    lodash.without = without;
+    lodash.wrap = wrap;
+    lodash.xor = xor;
+    lodash.zip = zip;
+    lodash.zipObject = zipObject;
+
+    // add aliases
+    lodash.collect = map;
+    lodash.drop = rest;
+    lodash.each = forEach;
+    lodash.eachRight = forEachRight;
+    lodash.extend = assign;
+    lodash.methods = functions;
+    lodash.object = zipObject;
+    lodash.select = filter;
+    lodash.tail = rest;
+    lodash.unique = uniq;
+    lodash.unzip = zip;
+
+    // add functions to `lodash.prototype`
+    mixin(lodash);
+
+    /*--------------------------------------------------------------------------*/
+
+    // add functions that return unwrapped values when chaining
+    lodash.clone = clone;
+    lodash.cloneDeep = cloneDeep;
+    lodash.contains = contains;
+    lodash.escape = escape;
+    lodash.every = every;
+    lodash.find = find;
+    lodash.findIndex = findIndex;
+    lodash.findKey = findKey;
+    lodash.findLast = findLast;
+    lodash.findLastIndex = findLastIndex;
+    lodash.findLastKey = findLastKey;
+    lodash.has = has;
+    lodash.identity = identity;
+    lodash.indexOf = indexOf;
+    lodash.isArguments = isArguments;
+    lodash.isArray = isArray;
+    lodash.isBoolean = isBoolean;
+    lodash.isDate = isDate;
+    lodash.isElement = isElement;
+    lodash.isEmpty = isEmpty;
+    lodash.isEqual = isEqual;
+    lodash.isFinite = isFinite;
+    lodash.isFunction = isFunction;
+    lodash.isNaN = isNaN;
+    lodash.isNull = isNull;
+    lodash.isNumber = isNumber;
+    lodash.isObject = isObject;
+    lodash.isPlainObject = isPlainObject;
+    lodash.isRegExp = isRegExp;
+    lodash.isString = isString;
+    lodash.isUndefined = isUndefined;
+    lodash.lastIndexOf = lastIndexOf;
+    lodash.mixin = mixin;
+    lodash.noConflict = noConflict;
+    lodash.noop = noop;
+    lodash.now = now;
+    lodash.parseInt = parseInt;
+    lodash.random = random;
+    lodash.reduce = reduce;
+    lodash.reduceRight = reduceRight;
+    lodash.result = result;
+    lodash.runInContext = runInContext;
+    lodash.size = size;
+    lodash.some = some;
+    lodash.sortedIndex = sortedIndex;
+    lodash.template = template;
+    lodash.unescape = unescape;
+    lodash.uniqueId = uniqueId;
+
+    // add aliases
+    lodash.all = every;
+    lodash.any = some;
+    lodash.detect = find;
+    lodash.findWhere = find;
+    lodash.foldl = reduce;
+    lodash.foldr = reduceRight;
+    lodash.include = contains;
+    lodash.inject = reduce;
+
+    mixin(function() {
+      var source = {}
+      forOwn(lodash, function(func, methodName) {
+        if (!lodash.prototype[methodName]) {
+          source[methodName] = func;
+        }
+      });
+      return source;
+    }(), false);
+
+    /*--------------------------------------------------------------------------*/
+
+    // add functions capable of returning wrapped and unwrapped values when chaining
+    lodash.first = first;
+    lodash.last = last;
+    lodash.sample = sample;
+
+    // add aliases
+    lodash.take = first;
+    lodash.head = first;
+
+    forOwn(lodash, function(func, methodName) {
+      var callbackable = methodName !== 'sample';
+      if (!lodash.prototype[methodName]) {
+        lodash.prototype[methodName]= function(n, guard) {
+          var chainAll = this.__chain__,
+              result = func(this.__wrapped__, n, guard);
+
+          return !chainAll && (n == null || (guard && !(callbackable && typeof n == 'function')))
+            ? result
+            : new lodashWrapper(result, chainAll);
+        };
+      }
+    });
+
+    /*--------------------------------------------------------------------------*/
+
+    /**
+     * The semantic version number.
+     *
+     * @static
+     * @memberOf _
+     * @type string
+     */
+    lodash.VERSION = '2.4.1';
+
+    // add "Chaining" functions to the wrapper
+    lodash.prototype.chain = wrapperChain;
+    lodash.prototype.toString = wrapperToString;
+    lodash.prototype.value = wrapperValueOf;
+    lodash.prototype.valueOf = wrapperValueOf;
+
+    // add `Array` functions that return unwrapped values
+    baseEach(['join', 'pop', 'shift'], function(methodName) {
+      var func = arrayRef[methodName];
+      lodash.prototype[methodName] = function() {
+        var chainAll = this.__chain__,
+            result = func.apply(this.__wrapped__, arguments);
+
+        return chainAll
+          ? new lodashWrapper(result, chainAll)
+          : result;
+      };
+    });
+
+    // add `Array` functions that return the existing wrapped value
+    baseEach(['push', 'reverse', 'sort', 'unshift'], function(methodName) {
+      var func = arrayRef[methodName];
+      lodash.prototype[methodName] = function() {
+        func.apply(this.__wrapped__, arguments);
+        return this;
+      };
+    });
+
+    // add `Array` functions that return new wrapped values
+    baseEach(['concat', 'slice', 'splice'], function(methodName) {
+      var func = arrayRef[methodName];
+      lodash.prototype[methodName] = function() {
+        return new lodashWrapper(func.apply(this.__wrapped__, arguments), this.__chain__);
+      };
+    });
+
+    // avoid array-like object bugs with `Array#shift` and `Array#splice`
+    // in IE < 9, Firefox < 10, Narwhal, and RingoJS
+    if (!support.spliceObjects) {
+      baseEach(['pop', 'shift', 'splice'], function(methodName) {
+        var func = arrayRef[methodName],
+            isSplice = methodName == 'splice';
+
+        lodash.prototype[methodName] = function() {
+          var chainAll = this.__chain__,
+              value = this.__wrapped__,
+              result = func.apply(value, arguments);
+
+          if (value.length === 0) {
+            delete value[0];
+          }
+          return (chainAll || isSplice)
+            ? new lodashWrapper(result, chainAll)
+            : result;
+        };
+      });
+    }
+
+    return lodash;
+  }
+
+  /*--------------------------------------------------------------------------*/
+
+  // expose Lo-Dash
+  var _ = runInContext();
+
+  // some AMD build optimizers like r.js check for condition patterns like the following:
+  if (typeof define == 'function' && typeof define.amd == 'object' && define.amd) {
+    // Expose Lo-Dash to the global object even when an AMD loader is present in
+    // case Lo-Dash is loaded with a RequireJS shim config.
+    // See http://requirejs.org/docs/api.html#config-shim
+    root._ = _;
+
+    // define as an anonymous module so, through path mapping, it can be
+    // referenced as the "underscore" module
+    define(function() {
+      return _;
+    });
+  }
+  // check for `exports` after `define` in case a build optimizer adds an `exports` object
+  else if (freeExports && freeModule) {
+    // in Node.js or RingoJS
+    if (moduleExports) {
+      (freeModule.exports = _)._ = _;
+    }
+    // in Narwhal or Rhino -require
+    else {
+      freeExports._ = _;
+    }
+  }
+  else {
+    // in a browser or Rhino
+    root._ = _;
+  }
+}.call(this));
+
+;//     Backbone.js 1.1.2
+
+//     (c) 2010-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+//     Backbone may be freely distributed under the MIT license.
+//     For all details and documentation:
+//     http://backbonejs.org
+
+(function(root, factory) {
+
+  // Set up Backbone appropriately for the environment. Start with AMD.
+  if (typeof define === 'function' && define.amd) {
+    define(['underscore', 'jquery', 'exports'], function(_, $, exports) {
+      // Export global even in AMD case in case this script is loaded with
+      // others that may still expect a global Backbone.
+      root.Backbone = factory(root, exports, _, $);
+    });
+
+  // Next for Node.js or CommonJS. jQuery may not be needed as a module.
+  } else if (typeof exports !== 'undefined') {
+    var _ = require('underscore');
+    factory(root, exports, _);
+
+  // Finally, as a browser global.
+  } else {
+    root.Backbone = factory(root, {}, root._, (root.jQuery || root.Zepto || root.ender || root.$));
+  }
+
+}(this, function(root, Backbone, _, $) {
+
+  // Initial Setup
+  // -------------
+
+  // Save the previous value of the `Backbone` variable, so that it can be
+  // restored later on, if `noConflict` is used.
+  var previousBackbone = root.Backbone;
+
+  // Create local references to array methods we'll want to use later.
+  var array = [];
+  var push = array.push;
+  var slice = array.slice;
+  var splice = array.splice;
+
+  // Current version of the library. Keep in sync with `package.json`.
+  Backbone.VERSION = '1.1.2';
+
+  // For Backbone's purposes, jQuery, Zepto, Ender, or My Library (kidding) owns
+  // the `$` variable.
+  Backbone.$ = $;
+
+  // Runs Backbone.js in *noConflict* mode, returning the `Backbone` variable
+  // to its previous owner. Returns a reference to this Backbone object.
+  Backbone.noConflict = function() {
+    root.Backbone = previousBackbone;
+    return this;
+  };
+
+  // Turn on `emulateHTTP` to support legacy HTTP servers. Setting this option
+  // will fake `"PATCH"`, `"PUT"` and `"DELETE"` requests via the `_method` parameter and
+  // set a `X-Http-Method-Override` header.
+  Backbone.emulateHTTP = false;
+
+  // Turn on `emulateJSON` to support legacy servers that can't deal with direct
+  // `application/json` requests ... will encode the body as
+  // `application/x-www-form-urlencoded` instead and will send the model in a
+  // form param named `model`.
+  Backbone.emulateJSON = false;
+
+  // Backbone.Events
+  // ---------------
+
+  // A module that can be mixed in to *any object* in order to provide it with
+  // custom events. You may bind with `on` or remove with `off` callback
+  // functions to an event; `trigger`-ing an event fires all callbacks in
+  // succession.
+  //
+  //     var object = {};
+  //     _.extend(object, Backbone.Events);
+  //     object.on('expand', function(){ alert('expanded'); });
+  //     object.trigger('expand');
+  //
+  var Events = Backbone.Events = {
+
+    // Bind an event to a `callback` function. Passing `"all"` will bind
+    // the callback to all events fired.
+    on: function(name, callback, context) {
+      if (!eventsApi(this, 'on', name, [callback, context]) || !callback) return this;
+      this._events || (this._events = {});
+      var events = this._events[name] || (this._events[name] = []);
+      events.push({callback: callback, context: context, ctx: context || this});
+      return this;
+    },
+
+    // Bind an event to only be triggered a single time. After the first time
+    // the callback is invoked, it will be removed.
+    once: function(name, callback, context) {
+      if (!eventsApi(this, 'once', name, [callback, context]) || !callback) return this;
+      var self = this;
+      var once = _.once(function() {
+        self.off(name, once);
+        callback.apply(this, arguments);
+      });
+      once._callback = callback;
+      return this.on(name, once, context);
+    },
+
+    // Remove one or many callbacks. If `context` is null, removes all
+    // callbacks with that function. If `callback` is null, removes all
+    // callbacks for the event. If `name` is null, removes all bound
+    // callbacks for all events.
+    off: function(name, callback, context) {
+      var retain, ev, events, names, i, l, j, k;
+      if (!this._events || !eventsApi(this, 'off', name, [callback, context])) return this;
+      if (!name && !callback && !context) {
+        this._events = void 0;
+        return this;
+      }
+      names = name ? [name] : _.keys(this._events);
+      for (i = 0, l = names.length; i < l; i++) {
+        name = names[i];
+        if (events = this._events[name]) {
+          this._events[name] = retain = [];
+          if (callback || context) {
+            for (j = 0, k = events.length; j < k; j++) {
+              ev = events[j];
+              if ((callback && callback !== ev.callback && callback !== ev.callback._callback) ||
+                  (context && context !== ev.context)) {
+                retain.push(ev);
+              }
+            }
+          }
+          if (!retain.length) delete this._events[name];
+        }
+      }
+
+      return this;
+    },
+
+    // Trigger one or many events, firing all bound callbacks. Callbacks are
+    // passed the same arguments as `trigger` is, apart from the event name
+    // (unless you're listening on `"all"`, which will cause your callback to
+    // receive the true name of the event as the first argument).
+    trigger: function(name) {
+      if (!this._events) return this;
+      var args = slice.call(arguments, 1);
+      if (!eventsApi(this, 'trigger', name, args)) return this;
+      var events = this._events[name];
+      var allEvents = this._events.all;
+      if (events) triggerEvents(events, args);
+      if (allEvents) triggerEvents(allEvents, arguments);
+      return this;
+    },
+
+    // Tell this object to stop listening to either specific events ... or
+    // to every object it's currently listening to.
+    stopListening: function(obj, name, callback) {
+      var listeningTo = this._listeningTo;
+      if (!listeningTo) return this;
+      var remove = !name && !callback;
+      if (!callback && typeof name === 'object') callback = this;
+      if (obj) (listeningTo = {})[obj._listenId] = obj;
+      for (var id in listeningTo) {
+        obj = listeningTo[id];
+        obj.off(name, callback, this);
+        if (remove || _.isEmpty(obj._events)) delete this._listeningTo[id];
+      }
+      return this;
+    }
+
+  };
+
+  // Regular expression used to split event strings.
+  var eventSplitter = /\s+/;
+
+  // Implement fancy features of the Events API such as multiple event
+  // names `"change blur"` and jQuery-style event maps `{change: action}`
+  // in terms of the existing API.
+  var eventsApi = function(obj, action, name, rest) {
+    if (!name) return true;
+
+    // Handle event maps.
+    if (typeof name === 'object') {
+      for (var key in name) {
+        obj[action].apply(obj, [key, name[key]].concat(rest));
+      }
+      return false;
+    }
+
+    // Handle space separated event names.
+    if (eventSplitter.test(name)) {
+      var names = name.split(eventSplitter);
+      for (var i = 0, l = names.length; i < l; i++) {
+        obj[action].apply(obj, [names[i]].concat(rest));
+      }
+      return false;
+    }
+
+    return true;
+  };
+
+  // A difficult-to-believe, but optimized internal dispatch function for
+  // triggering events. Tries to keep the usual cases speedy (most internal
+  // Backbone events have 3 arguments).
+  var triggerEvents = function(events, args) {
+    var ev, i = -1, l = events.length, a1 = args[0], a2 = args[1], a3 = args[2];
+    switch (args.length) {
+      case 0: while (++i < l) (ev = events[i]).callback.call(ev.ctx); return;
+      case 1: while (++i < l) (ev = events[i]).callback.call(ev.ctx, a1); return;
+      case 2: while (++i < l) (ev = events[i]).callback.call(ev.ctx, a1, a2); return;
+      case 3: while (++i < l) (ev = events[i]).callback.call(ev.ctx, a1, a2, a3); return;
+      default: while (++i < l) (ev = events[i]).callback.apply(ev.ctx, args); return;
+    }
+  };
+
+  var listenMethods = {listenTo: 'on', listenToOnce: 'once'};
+
+  // Inversion-of-control versions of `on` and `once`. Tell *this* object to
+  // listen to an event in another object ... keeping track of what it's
+  // listening to.
+  _.each(listenMethods, function(implementation, method) {
+    Events[method] = function(obj, name, callback) {
+      var listeningTo = this._listeningTo || (this._listeningTo = {});
+      var id = obj._listenId || (obj._listenId = _.uniqueId('l'));
+      listeningTo[id] = obj;
+      if (!callback && typeof name === 'object') callback = this;
+      obj[implementation](name, callback, this);
+      return this;
+    };
+  });
+
+  // Aliases for backwards compatibility.
+  Events.bind   = Events.on;
+  Events.unbind = Events.off;
+
+  // Allow the `Backbone` object to serve as a global event bus, for folks who
+  // want global "pubsub" in a convenient place.
+  _.extend(Backbone, Events);
+
+  // Backbone.Model
+  // --------------
+
+  // Backbone **Models** are the basic data object in the framework --
+  // frequently representing a row in a table in a database on your server.
+  // A discrete chunk of data and a bunch of useful, related methods for
+  // performing computations and transformations on that data.
+
+  // Create a new model with the specified attributes. A client id (`cid`)
+  // is automatically generated and assigned for you.
+  var Model = Backbone.Model = function(attributes, options) {
+    var attrs = attributes || {};
+    options || (options = {});
+    this.cid = _.uniqueId('c');
+    this.attributes = {};
+    if (options.collection) this.collection = options.collection;
+    if (options.parse) attrs = this.parse(attrs, options) || {};
+    attrs = _.defaults({}, attrs, _.result(this, 'defaults'));
+    this.set(attrs, options);
+    this.changed = {};
+    this.initialize.apply(this, arguments);
+  };
+
+  // Attach all inheritable methods to the Model prototype.
+  _.extend(Model.prototype, Events, {
+
+    // A hash of attributes whose current and previous value differ.
+    changed: null,
+
+    // The value returned during the last failed validation.
+    validationError: null,
+
+    // The default name for the JSON `id` attribute is `"id"`. MongoDB and
+    // CouchDB users may want to set this to `"_id"`.
+    idAttribute: 'id',
+
+    // Initialize is an empty function by default. Override it with your own
+    // initialization logic.
+    initialize: function(){},
+
+    // Return a copy of the model's `attributes` object.
+    toJSON: function(options) {
+      return _.clone(this.attributes);
+    },
+
+    // Proxy `Backbone.sync` by default -- but override this if you need
+    // custom syncing semantics for *this* particular model.
+    sync: function() {
+      return Backbone.sync.apply(this, arguments);
+    },
+
+    // Get the value of an attribute.
+    get: function(attr) {
+      return this.attributes[attr];
+    },
+
+    // Get the HTML-escaped value of an attribute.
+    escape: function(attr) {
+      return _.escape(this.get(attr));
+    },
+
+    // Returns `true` if the attribute contains a value that is not null
+    // or undefined.
+    has: function(attr) {
+      return this.get(attr) != null;
+    },
+
+    // Set a hash of model attributes on the object, firing `"change"`. This is
+    // the core primitive operation of a model, updating the data and notifying
+    // anyone who needs to know about the change in state. The heart of the beast.
+    set: function(key, val, options) {
+      var attr, attrs, unset, changes, silent, changing, prev, current;
+      if (key == null) return this;
+
+      // Handle both `"key", value` and `{key: value}` -style arguments.
+      if (typeof key === 'object') {
+        attrs = key;
+        options = val;
+      } else {
+        (attrs = {})[key] = val;
+      }
+
+      options || (options = {});
+
+      // Run validation.
+      if (!this._validate(attrs, options)) return false;
+
+      // Extract attributes and options.
+      unset           = options.unset;
+      silent          = options.silent;
+      changes         = [];
+      changing        = this._changing;
+      this._changing  = true;
+
+      if (!changing) {
+        this._previousAttributes = _.clone(this.attributes);
+        this.changed = {};
+      }
+      current = this.attributes, prev = this._previousAttributes;
+
+      // Check for changes of `id`.
+      if (this.idAttribute in attrs) this.id = attrs[this.idAttribute];
+
+      // For each `set` attribute, update or delete the current value.
+      for (attr in attrs) {
+        val = attrs[attr];
+        if (!_.isEqual(current[attr], val)) changes.push(attr);
+        if (!_.isEqual(prev[attr], val)) {
+          this.changed[attr] = val;
+        } else {
+          delete this.changed[attr];
+        }
+        unset ? delete current[attr] : current[attr] = val;
+      }
+
+      // Trigger all relevant attribute changes.
+      if (!silent) {
+        if (changes.length) this._pending = options;
+        for (var i = 0, l = changes.length; i < l; i++) {
+          this.trigger('change:' + changes[i], this, current[changes[i]], options);
+        }
+      }
+
+      // You might be wondering why there's a `while` loop here. Changes can
+      // be recursively nested within `"change"` events.
+      if (changing) return this;
+      if (!silent) {
+        while (this._pending) {
+          options = this._pending;
+          this._pending = false;
+          this.trigger('change', this, options);
+        }
+      }
+      this._pending = false;
+      this._changing = false;
+      return this;
+    },
+
+    // Remove an attribute from the model, firing `"change"`. `unset` is a noop
+    // if the attribute doesn't exist.
+    unset: function(attr, options) {
+      return this.set(attr, void 0, _.extend({}, options, {unset: true}));
+    },
+
+    // Clear all attributes on the model, firing `"change"`.
+    clear: function(options) {
+      var attrs = {};
+      for (var key in this.attributes) attrs[key] = void 0;
+      return this.set(attrs, _.extend({}, options, {unset: true}));
+    },
+
+    // Determine if the model has changed since the last `"change"` event.
+    // If you specify an attribute name, determine if that attribute has changed.
+    hasChanged: function(attr) {
+      if (attr == null) return !_.isEmpty(this.changed);
+      return _.has(this.changed, attr);
+    },
+
+    // Return an object containing all the attributes that have changed, or
+    // false if there are no changed attributes. Useful for determining what
+    // parts of a view need to be updated and/or what attributes need to be
+    // persisted to the server. Unset attributes will be set to undefined.
+    // You can also pass an attributes object to diff against the model,
+    // determining if there *would be* a change.
+    changedAttributes: function(diff) {
+      if (!diff) return this.hasChanged() ? _.clone(this.changed) : false;
+      var val, changed = false;
+      var old = this._changing ? this._previousAttributes : this.attributes;
+      for (var attr in diff) {
+        if (_.isEqual(old[attr], (val = diff[attr]))) continue;
+        (changed || (changed = {}))[attr] = val;
+      }
+      return changed;
+    },
+
+    // Get the previous value of an attribute, recorded at the time the last
+    // `"change"` event was fired.
+    previous: function(attr) {
+      if (attr == null || !this._previousAttributes) return null;
+      return this._previousAttributes[attr];
+    },
+
+    // Get all of the attributes of the model at the time of the previous
+    // `"change"` event.
+    previousAttributes: function() {
+      return _.clone(this._previousAttributes);
+    },
+
+    // Fetch the model from the server. If the server's representation of the
+    // model differs from its current attributes, they will be overridden,
+    // triggering a `"change"` event.
+    fetch: function(options) {
+      options = options ? _.clone(options) : {};
+      if (options.parse === void 0) options.parse = true;
+      var model = this;
+      var success = options.success;
+      options.success = function(resp) {
+        if (!model.set(model.parse(resp, options), options)) return false;
+        if (success) success(model, resp, options);
+        model.trigger('sync', model, resp, options);
+      };
+      wrapError(this, options);
+      return this.sync('read', this, options);
+    },
+
+    // Set a hash of model attributes, and sync the model to the server.
+    // If the server returns an attributes hash that differs, the model's
+    // state will be `set` again.
+    save: function(key, val, options) {
+      var attrs, method, xhr, attributes = this.attributes;
+
+      // Handle both `"key", value` and `{key: value}` -style arguments.
+      if (key == null || typeof key === 'object') {
+        attrs = key;
+        options = val;
+      } else {
+        (attrs = {})[key] = val;
+      }
+
+      options = _.extend({validate: true}, options);
+
+      // If we're not waiting and attributes exist, save acts as
+      // `set(attr).save(null, opts)` with validation. Otherwise, check if
+      // the model will be valid when the attributes, if any, are set.
+      if (attrs && !options.wait) {
+        if (!this.set(attrs, options)) return false;
+      } else {
+        if (!this._validate(attrs, options)) return false;
+      }
+
+      // Set temporary attributes if `{wait: true}`.
+      if (attrs && options.wait) {
+        this.attributes = _.extend({}, attributes, attrs);
+      }
+
+      // After a successful server-side save, the client is (optionally)
+      // updated with the server-side state.
+      if (options.parse === void 0) options.parse = true;
+      var model = this;
+      var success = options.success;
+      options.success = function(resp) {
+        // Ensure attributes are restored during synchronous saves.
+        model.attributes = attributes;
+        var serverAttrs = model.parse(resp, options);
+        if (options.wait) serverAttrs = _.extend(attrs || {}, serverAttrs);
+        if (_.isObject(serverAttrs) && !model.set(serverAttrs, options)) {
+          return false;
+        }
+        if (success) success(model, resp, options);
+        model.trigger('sync', model, resp, options);
+      };
+      wrapError(this, options);
+
+      method = this.isNew() ? 'create' : (options.patch ? 'patch' : 'update');
+      if (method === 'patch') options.attrs = attrs;
+      xhr = this.sync(method, this, options);
+
+      // Restore attributes.
+      if (attrs && options.wait) this.attributes = attributes;
+
+      return xhr;
+    },
+
+    // Destroy this model on the server if it was already persisted.
+    // Optimistically removes the model from its collection, if it has one.
+    // If `wait: true` is passed, waits for the server to respond before removal.
+    destroy: function(options) {
+      options = options ? _.clone(options) : {};
+      var model = this;
+      var success = options.success;
+
+      var destroy = function() {
+        model.trigger('destroy', model, model.collection, options);
+      };
+
+      options.success = function(resp) {
+        if (options.wait || model.isNew()) destroy();
+        if (success) success(model, resp, options);
+        if (!model.isNew()) model.trigger('sync', model, resp, options);
+      };
+
+      if (this.isNew()) {
+        options.success();
+        return false;
+      }
+      wrapError(this, options);
+
+      var xhr = this.sync('delete', this, options);
+      if (!options.wait) destroy();
+      return xhr;
+    },
+
+    // Default URL for the model's representation on the server -- if you're
+    // using Backbone's restful methods, override this to change the endpoint
+    // that will be called.
+    url: function() {
+      var base =
+        _.result(this, 'urlRoot') ||
+        _.result(this.collection, 'url') ||
+        urlError();
+      if (this.isNew()) return base;
+      return base.replace(/([^\/])$/, '$1/') + encodeURIComponent(this.id);
+    },
+
+    // **parse** converts a response into the hash of attributes to be `set` on
+    // the model. The default implementation is just to pass the response along.
+    parse: function(resp, options) {
+      return resp;
+    },
+
+    // Create a new model with identical attributes to this one.
+    clone: function() {
+      return new this.constructor(this.attributes);
+    },
+
+    // A model is new if it has never been saved to the server, and lacks an id.
+    isNew: function() {
+      return !this.has(this.idAttribute);
+    },
+
+    // Check if the model is currently in a valid state.
+    isValid: function(options) {
+      return this._validate({}, _.extend(options || {}, { validate: true }));
+    },
+
+    // Run validation against the next complete set of model attributes,
+    // returning `true` if all is well. Otherwise, fire an `"invalid"` event.
+    _validate: function(attrs, options) {
+      if (!options.validate || !this.validate) return true;
+      attrs = _.extend({}, this.attributes, attrs);
+      var error = this.validationError = this.validate(attrs, options) || null;
+      if (!error) return true;
+      this.trigger('invalid', this, error, _.extend(options, {validationError: error}));
+      return false;
+    }
+
+  });
+
+  // Underscore methods that we want to implement on the Model.
+  var modelMethods = ['keys', 'values', 'pairs', 'invert', 'pick', 'omit'];
+
+  // Mix in each Underscore method as a proxy to `Model#attributes`.
+  _.each(modelMethods, function(method) {
+    Model.prototype[method] = function() {
+      var args = slice.call(arguments);
+      args.unshift(this.attributes);
+      return _[method].apply(_, args);
+    };
+  });
+
+  // Backbone.Collection
+  // -------------------
+
+  // If models tend to represent a single row of data, a Backbone Collection is
+  // more analagous to a table full of data ... or a small slice or page of that
+  // table, or a collection of rows that belong together for a particular reason
+  // -- all of the messages in this particular folder, all of the documents
+  // belonging to this particular author, and so on. Collections maintain
+  // indexes of their models, both in order, and for lookup by `id`.
+
+  // Create a new **Collection**, perhaps to contain a specific type of `model`.
+  // If a `comparator` is specified, the Collection will maintain
+  // its models in sort order, as they're added and removed.
+  var Collection = Backbone.Collection = function(models, options) {
+    options || (options = {});
+    if (options.model) this.model = options.model;
+    if (options.comparator !== void 0) this.comparator = options.comparator;
+    this._reset();
+    this.initialize.apply(this, arguments);
+    if (models) this.reset(models, _.extend({silent: true}, options));
+  };
+
+  // Default options for `Collection#set`.
+  var setOptions = {add: true, remove: true, merge: true};
+  var addOptions = {add: true, remove: false};
+
+  // Define the Collection's inheritable methods.
+  _.extend(Collection.prototype, Events, {
+
+    // The default model for a collection is just a **Backbone.Model**.
+    // This should be overridden in most cases.
+    model: Model,
+
+    // Initialize is an empty function by default. Override it with your own
+    // initialization logic.
+    initialize: function(){},
+
+    // The JSON representation of a Collection is an array of the
+    // models' attributes.
+    toJSON: function(options) {
+      return this.map(function(model){ return model.toJSON(options); });
+    },
+
+    // Proxy `Backbone.sync` by default.
+    sync: function() {
+      return Backbone.sync.apply(this, arguments);
+    },
+
+    // Add a model, or list of models to the set.
+    add: function(models, options) {
+      return this.set(models, _.extend({merge: false}, options, addOptions));
+    },
+
+    // Remove a model, or a list of models from the set.
+    remove: function(models, options) {
+      var singular = !_.isArray(models);
+      models = singular ? [models] : _.clone(models);
+      options || (options = {});
+      var i, l, index, model;
+      for (i = 0, l = models.length; i < l; i++) {
+        model = models[i] = this.get(models[i]);
+        if (!model) continue;
+        delete this._byId[model.id];
+        delete this._byId[model.cid];
+        index = this.indexOf(model);
+        this.models.splice(index, 1);
+        this.length--;
+        if (!options.silent) {
+          options.index = index;
+          model.trigger('remove', model, this, options);
+        }
+        this._removeReference(model, options);
+      }
+      return singular ? models[0] : models;
+    },
+
+    // Update a collection by `set`-ing a new list of models, adding new ones,
+    // removing models that are no longer present, and merging models that
+    // already exist in the collection, as necessary. Similar to **Model#set**,
+    // the core operation for updating the data contained by the collection.
+    set: function(models, options) {
+      options = _.defaults({}, options, setOptions);
+      if (options.parse) models = this.parse(models, options);
+      var singular = !_.isArray(models);
+      models = singular ? (models ? [models] : []) : _.clone(models);
+      var i, l, id, model, attrs, existing, sort;
+      var at = options.at;
+      var targetModel = this.model;
+      var sortable = this.comparator && (at == null) && options.sort !== false;
+      var sortAttr = _.isString(this.comparator) ? this.comparator : null;
+      var toAdd = [], toRemove = [], modelMap = {};
+      var add = options.add, merge = options.merge, remove = options.remove;
+      var order = !sortable && add && remove ? [] : false;
+
+      // Turn bare objects into model references, and prevent invalid models
+      // from being added.
+      for (i = 0, l = models.length; i < l; i++) {
+        attrs = models[i] || {};
+        if (attrs instanceof Model) {
+          id = model = attrs;
+        } else {
+          id = attrs[targetModel.prototype.idAttribute || 'id'];
+        }
+
+        // If a duplicate is found, prevent it from being added and
+        // optionally merge it into the existing model.
+        if (existing = this.get(id)) {
+          if (remove) modelMap[existing.cid] = true;
+          if (merge) {
+            attrs = attrs === model ? model.attributes : attrs;
+            if (options.parse) attrs = existing.parse(attrs, options);
+            existing.set(attrs, options);
+            if (sortable && !sort && existing.hasChanged(sortAttr)) sort = true;
+          }
+          models[i] = existing;
+
+        // If this is a new, valid model, push it to the `toAdd` list.
+        } else if (add) {
+          model = models[i] = this._prepareModel(attrs, options);
+          if (!model) continue;
+          toAdd.push(model);
+          this._addReference(model, options);
+        }
+
+        // Do not add multiple models with the same `id`.
+        model = existing || model;
+        if (order && (model.isNew() || !modelMap[model.id])) order.push(model);
+        modelMap[model.id] = true;
+      }
+
+      // Remove nonexistent models if appropriate.
+      if (remove) {
+        for (i = 0, l = this.length; i < l; ++i) {
+          if (!modelMap[(model = this.models[i]).cid]) toRemove.push(model);
+        }
+        if (toRemove.length) this.remove(toRemove, options);
+      }
+
+      // See if sorting is needed, update `length` and splice in new models.
+      if (toAdd.length || (order && order.length)) {
+        if (sortable) sort = true;
+        this.length += toAdd.length;
+        if (at != null) {
+          for (i = 0, l = toAdd.length; i < l; i++) {
+            this.models.splice(at + i, 0, toAdd[i]);
+          }
+        } else {
+          if (order) this.models.length = 0;
+          var orderedModels = order || toAdd;
+          for (i = 0, l = orderedModels.length; i < l; i++) {
+            this.models.push(orderedModels[i]);
+          }
+        }
+      }
+
+      // Silently sort the collection if appropriate.
+      if (sort) this.sort({silent: true});
+
+      // Unless silenced, it's time to fire all appropriate add/sort events.
+      if (!options.silent) {
+        for (i = 0, l = toAdd.length; i < l; i++) {
+          (model = toAdd[i]).trigger('add', model, this, options);
+        }
+        if (sort || (order && order.length)) this.trigger('sort', this, options);
+      }
+
+      // Return the added (or merged) model (or models).
+      return singular ? models[0] : models;
+    },
+
+    // When you have more items than you want to add or remove individually,
+    // you can reset the entire set with a new list of models, without firing
+    // any granular `add` or `remove` events. Fires `reset` when finished.
+    // Useful for bulk operations and optimizations.
+    reset: function(models, options) {
+      options || (options = {});
+      for (var i = 0, l = this.models.length; i < l; i++) {
+        this._removeReference(this.models[i], options);
+      }
+      options.previousModels = this.models;
+      this._reset();
+      models = this.add(models, _.extend({silent: true}, options));
+      if (!options.silent) this.trigger('reset', this, options);
+      return models;
+    },
+
+    // Add a model to the end of the collection.
+    push: function(model, options) {
+      return this.add(model, _.extend({at: this.length}, options));
+    },
+
+    // Remove a model from the end of the collection.
+    pop: function(options) {
+      var model = this.at(this.length - 1);
+      this.remove(model, options);
+      return model;
+    },
+
+    // Add a model to the beginning of the collection.
+    unshift: function(model, options) {
+      return this.add(model, _.extend({at: 0}, options));
+    },
+
+    // Remove a model from the beginning of the collection.
+    shift: function(options) {
+      var model = this.at(0);
+      this.remove(model, options);
+      return model;
+    },
+
+    // Slice out a sub-array of models from the collection.
+    slice: function() {
+      return slice.apply(this.models, arguments);
+    },
+
+    // Get a model from the set by id.
+    get: function(obj) {
+      if (obj == null) return void 0;
+      return this._byId[obj] || this._byId[obj.id] || this._byId[obj.cid];
+    },
+
+    // Get the model at the given index.
+    at: function(index) {
+      return this.models[index];
+    },
+
+    // Return models with matching attributes. Useful for simple cases of
+    // `filter`.
+    where: function(attrs, first) {
+      if (_.isEmpty(attrs)) return first ? void 0 : [];
+      return this[first ? 'find' : 'filter'](function(model) {
+        for (var key in attrs) {
+          if (attrs[key] !== model.get(key)) return false;
+        }
+        return true;
+      });
+    },
+
+    // Return the first model with matching attributes. Useful for simple cases
+    // of `find`.
+    findWhere: function(attrs) {
+      return this.where(attrs, true);
+    },
+
+    // Force the collection to re-sort itself. You don't need to call this under
+    // normal circumstances, as the set will maintain sort order as each item
+    // is added.
+    sort: function(options) {
+      if (!this.comparator) throw new Error('Cannot sort a set without a comparator');
+      options || (options = {});
+
+      // Run sort based on type of `comparator`.
+      if (_.isString(this.comparator) || this.comparator.length === 1) {
+        this.models = this.sortBy(this.comparator, this);
+      } else {
+        this.models.sort(_.bind(this.comparator, this));
+      }
+
+      if (!options.silent) this.trigger('sort', this, options);
+      return this;
+    },
+
+    // Pluck an attribute from each model in the collection.
+    pluck: function(attr) {
+      return _.invoke(this.models, 'get', attr);
+    },
+
+    // Fetch the default set of models for this collection, resetting the
+    // collection when they arrive. If `reset: true` is passed, the response
+    // data will be passed through the `reset` method instead of `set`.
+    fetch: function(options) {
+      options = options ? _.clone(options) : {};
+      if (options.parse === void 0) options.parse = true;
+      var success = options.success;
+      var collection = this;
+      options.success = function(resp) {
+        var method = options.reset ? 'reset' : 'set';
+        collection[method](resp, options);
+        if (success) success(collection, resp, options);
+        collection.trigger('sync', collection, resp, options);
+      };
+      wrapError(this, options);
+      return this.sync('read', this, options);
+    },
+
+    // Create a new instance of a model in this collection. Add the model to the
+    // collection immediately, unless `wait: true` is passed, in which case we
+    // wait for the server to agree.
+    create: function(model, options) {
+      options = options ? _.clone(options) : {};
+      if (!(model = this._prepareModel(model, options))) return false;
+      if (!options.wait) this.add(model, options);
+      var collection = this;
+      var success = options.success;
+      options.success = function(model, resp) {
+        if (options.wait) collection.add(model, options);
+        if (success) success(model, resp, options);
+      };
+      model.save(null, options);
+      return model;
+    },
+
+    // **parse** converts a response into a list of models to be added to the
+    // collection. The default implementation is just to pass it through.
+    parse: function(resp, options) {
+      return resp;
+    },
+
+    // Create a new collection with an identical list of models as this one.
+    clone: function() {
+      return new this.constructor(this.models);
+    },
+
+    // Private method to reset all internal state. Called when the collection
+    // is first initialized or reset.
+    _reset: function() {
+      this.length = 0;
+      this.models = [];
+      this._byId  = {};
+    },
+
+    // Prepare a hash of attributes (or other model) to be added to this
+    // collection.
+    _prepareModel: function(attrs, options) {
+      if (attrs instanceof Model) return attrs;
+      options = options ? _.clone(options) : {};
+      options.collection = this;
+      var model = new this.model(attrs, options);
+      if (!model.validationError) return model;
+      this.trigger('invalid', this, model.validationError, options);
+      return false;
+    },
+
+    // Internal method to create a model's ties to a collection.
+    _addReference: function(model, options) {
+      this._byId[model.cid] = model;
+      if (model.id != null) this._byId[model.id] = model;
+      if (!model.collection) model.collection = this;
+      model.on('all', this._onModelEvent, this);
+    },
+
+    // Internal method to sever a model's ties to a collection.
+    _removeReference: function(model, options) {
+      if (this === model.collection) delete model.collection;
+      model.off('all', this._onModelEvent, this);
+    },
+
+    // Internal method called every time a model in the set fires an event.
+    // Sets need to update their indexes when models change ids. All other
+    // events simply proxy through. "add" and "remove" events that originate
+    // in other collections are ignored.
+    _onModelEvent: function(event, model, collection, options) {
+      if ((event === 'add' || event === 'remove') && collection !== this) return;
+      if (event === 'destroy') this.remove(model, options);
+      if (model && event === 'change:' + model.idAttribute) {
+        delete this._byId[model.previous(model.idAttribute)];
+        if (model.id != null) this._byId[model.id] = model;
+      }
+      this.trigger.apply(this, arguments);
+    }
+
+  });
+
+  // Underscore methods that we want to implement on the Collection.
+  // 90% of the core usefulness of Backbone Collections is actually implemented
+  // right here:
+  var methods = ['forEach', 'each', 'map', 'collect', 'reduce', 'foldl',
+    'inject', 'reduceRight', 'foldr', 'find', 'detect', 'filter', 'select',
+    'reject', 'every', 'all', 'some', 'any', 'include', 'contains', 'invoke',
+    'max', 'min', 'toArray', 'size', 'first', 'head', 'take', 'initial', 'rest',
+    'tail', 'drop', 'last', 'without', 'difference', 'indexOf', 'shuffle',
+    'lastIndexOf', 'isEmpty', 'chain', 'sample'];
+
+  // Mix in each Underscore method as a proxy to `Collection#models`.
+  _.each(methods, function(method) {
+    Collection.prototype[method] = function() {
+      var args = slice.call(arguments);
+      args.unshift(this.models);
+      return _[method].apply(_, args);
+    };
+  });
+
+  // Underscore methods that take a property name as an argument.
+  var attributeMethods = ['groupBy', 'countBy', 'sortBy', 'indexBy'];
+
+  // Use attributes instead of properties.
+  _.each(attributeMethods, function(method) {
+    Collection.prototype[method] = function(value, context) {
+      var iterator = _.isFunction(value) ? value : function(model) {
+        return model.get(value);
+      };
+      return _[method](this.models, iterator, context);
+    };
+  });
+
+  // Backbone.View
+  // -------------
+
+  // Backbone Views are almost more convention than they are actual code. A View
+  // is simply a JavaScript object that represents a logical chunk of UI in the
+  // DOM. This might be a single item, an entire list, a sidebar or panel, or
+  // even the surrounding frame which wraps your whole app. Defining a chunk of
+  // UI as a **View** allows you to define your DOM events declaratively, without
+  // having to worry about render order ... and makes it easy for the view to
+  // react to specific changes in the state of your models.
+
+  // Creating a Backbone.View creates its initial element outside of the DOM,
+  // if an existing element is not provided...
+  var View = Backbone.View = function(options) {
+    this.cid = _.uniqueId('view');
+    options || (options = {});
+    _.extend(this, _.pick(options, viewOptions));
+    this._ensureElement();
+    this.initialize.apply(this, arguments);
+    this.delegateEvents();
+  };
+
+  // Cached regex to split keys for `delegate`.
+  var delegateEventSplitter = /^(\S+)\s*(.*)$/;
+
+  // List of view options to be merged as properties.
+  var viewOptions = ['model', 'collection', 'el', 'id', 'attributes', 'className', 'tagName', 'events'];
+
+  // Set up all inheritable **Backbone.View** properties and methods.
+  _.extend(View.prototype, Events, {
+
+    // The default `tagName` of a View's element is `"div"`.
+    tagName: 'div',
+
+    // jQuery delegate for element lookup, scoped to DOM elements within the
+    // current view. This should be preferred to global lookups where possible.
+    $: function(selector) {
+      return this.$el.find(selector);
+    },
+
+    // Initialize is an empty function by default. Override it with your own
+    // initialization logic.
+    initialize: function(){},
+
+    // **render** is the core function that your view should override, in order
+    // to populate its element (`this.el`), with the appropriate HTML. The
+    // convention is for **render** to always return `this`.
+    render: function() {
+      return this;
+    },
+
+    // Remove this view by taking the element out of the DOM, and removing any
+    // applicable Backbone.Events listeners.
+    remove: function() {
+      this.$el.remove();
+      this.stopListening();
+      return this;
+    },
+
+    // Change the view's element (`this.el` property), including event
+    // re-delegation.
+    setElement: function(element, delegate) {
+      if (this.$el) this.undelegateEvents();
+      this.$el = element instanceof Backbone.$ ? element : Backbone.$(element);
+      this.el = this.$el[0];
+      if (delegate !== false) this.delegateEvents();
+      return this;
+    },
+
+    // Set callbacks, where `this.events` is a hash of
+    //
+    // *{"event selector": "callback"}*
+    //
+    //     {
+    //       'mousedown .title':  'edit',
+    //       'click .button':     'save',
+    //       'click .open':       function(e) { ... }
+    //     }
+    //
+    // pairs. Callbacks will be bound to the view, with `this` set properly.
+    // Uses event delegation for efficiency.
+    // Omitting the selector binds the event to `this.el`.
+    // This only works for delegate-able events: not `focus`, `blur`, and
+    // not `change`, `submit`, and `reset` in Internet Explorer.
+    delegateEvents: function(events) {
+      if (!(events || (events = _.result(this, 'events')))) return this;
+      this.undelegateEvents();
+      for (var key in events) {
+        var method = events[key];
+        if (!_.isFunction(method)) method = this[events[key]];
+        if (!method) continue;
+
+        var match = key.match(delegateEventSplitter);
+        var eventName = match[1], selector = match[2];
+        method = _.bind(method, this);
+        eventName += '.delegateEvents' + this.cid;
+        if (selector === '') {
+          this.$el.on(eventName, method);
+        } else {
+          this.$el.on(eventName, selector, method);
+        }
+      }
+      return this;
+    },
+
+    // Clears all callbacks previously bound to the view with `delegateEvents`.
+    // You usually don't need to use this, but may wish to if you have multiple
+    // Backbone views attached to the same DOM element.
+    undelegateEvents: function() {
+      this.$el.off('.delegateEvents' + this.cid);
+      return this;
+    },
+
+    // Ensure that the View has a DOM element to render into.
+    // If `this.el` is a string, pass it through `$()`, take the first
+    // matching element, and re-assign it to `el`. Otherwise, create
+    // an element from the `id`, `className` and `tagName` properties.
+    _ensureElement: function() {
+      if (!this.el) {
+        var attrs = _.extend({}, _.result(this, 'attributes'));
+        if (this.id) attrs.id = _.result(this, 'id');
+        if (this.className) attrs['class'] = _.result(this, 'className');
+        var $el = Backbone.$('<' + _.result(this, 'tagName') + '>').attr(attrs);
+        this.setElement($el, false);
+      } else {
+        this.setElement(_.result(this, 'el'), false);
+      }
+    }
+
+  });
+
+  // Backbone.sync
+  // -------------
+
+  // Override this function to change the manner in which Backbone persists
+  // models to the server. You will be passed the type of request, and the
+  // model in question. By default, makes a RESTful Ajax request
+  // to the model's `url()`. Some possible customizations could be:
+  //
+  // * Use `setTimeout` to batch rapid-fire updates into a single request.
+  // * Send up the models as XML instead of JSON.
+  // * Persist models via WebSockets instead of Ajax.
+  //
+  // Turn on `Backbone.emulateHTTP` in order to send `PUT` and `DELETE` requests
+  // as `POST`, with a `_method` parameter containing the true HTTP method,
+  // as well as all requests with the body as `application/x-www-form-urlencoded`
+  // instead of `application/json` with the model in a param named `model`.
+  // Useful when interfacing with server-side languages like **PHP** that make
+  // it difficult to read the body of `PUT` requests.
+  Backbone.sync = function(method, model, options) {
+    var type = methodMap[method];
+
+    // Default options, unless specified.
+    _.defaults(options || (options = {}), {
+      emulateHTTP: Backbone.emulateHTTP,
+      emulateJSON: Backbone.emulateJSON
+    });
+
+    // Default JSON-request options.
+    var params = {type: type, dataType: 'json'};
+
+    // Ensure that we have a URL.
+    if (!options.url) {
+      params.url = _.result(model, 'url') || urlError();
+    }
+
+    // Ensure that we have the appropriate request data.
+    if (options.data == null && model && (method === 'create' || method === 'update' || method === 'patch')) {
+      params.contentType = 'application/json';
+      params.data = JSON.stringify(options.attrs || model.toJSON(options));
+    }
+
+    // For older servers, emulate JSON by encoding the request into an HTML-form.
+    if (options.emulateJSON) {
+      params.contentType = 'application/x-www-form-urlencoded';
+      params.data = params.data ? {model: params.data} : {};
+    }
+
+    // For older servers, emulate HTTP by mimicking the HTTP method with `_method`
+    // And an `X-HTTP-Method-Override` header.
+    if (options.emulateHTTP && (type === 'PUT' || type === 'DELETE' || type === 'PATCH')) {
+      params.type = 'POST';
+      if (options.emulateJSON) params.data._method = type;
+      var beforeSend = options.beforeSend;
+      options.beforeSend = function(xhr) {
+        xhr.setRequestHeader('X-HTTP-Method-Override', type);
+        if (beforeSend) return beforeSend.apply(this, arguments);
+      };
+    }
+
+    // Don't process data on a non-GET request.
+    if (params.type !== 'GET' && !options.emulateJSON) {
+      params.processData = false;
+    }
+
+    // If we're sending a `PATCH` request, and we're in an old Internet Explorer
+    // that still has ActiveX enabled by default, override jQuery to use that
+    // for XHR instead. Remove this line when jQuery supports `PATCH` on IE8.
+    if (params.type === 'PATCH' && noXhrPatch) {
+      params.xhr = function() {
+        return new ActiveXObject("Microsoft.XMLHTTP");
+      };
+    }
+
+    // Make the request, allowing the user to override any Ajax options.
+    var xhr = options.xhr = Backbone.ajax(_.extend(params, options));
+    model.trigger('request', model, xhr, options);
+    return xhr;
+  };
+
+  var noXhrPatch =
+    typeof window !== 'undefined' && !!window.ActiveXObject &&
+      !(window.XMLHttpRequest && (new XMLHttpRequest).dispatchEvent);
+
+  // Map from CRUD to HTTP for our default `Backbone.sync` implementation.
+  var methodMap = {
+    'create': 'POST',
+    'update': 'PUT',
+    'patch':  'PATCH',
+    'delete': 'DELETE',
+    'read':   'GET'
+  };
+
+  // Set the default implementation of `Backbone.ajax` to proxy through to `$`.
+  // Override this if you'd like to use a different library.
+  Backbone.ajax = function() {
+    return Backbone.$.ajax.apply(Backbone.$, arguments);
+  };
+
+  // Backbone.Router
+  // ---------------
+
+  // Routers map faux-URLs to actions, and fire events when routes are
+  // matched. Creating a new one sets its `routes` hash, if not set statically.
+  var Router = Backbone.Router = function(options) {
+    options || (options = {});
+    if (options.routes) this.routes = options.routes;
+    this._bindRoutes();
+    this.initialize.apply(this, arguments);
+  };
+
+  // Cached regular expressions for matching named param parts and splatted
+  // parts of route strings.
+  var optionalParam = /\((.*?)\)/g;
+  var namedParam    = /(\(\?)?:\w+/g;
+  var splatParam    = /\*\w+/g;
+  var escapeRegExp  = /[\-{}\[\]+?.,\\\^$|#\s]/g;
+
+  // Set up all inheritable **Backbone.Router** properties and methods.
+  _.extend(Router.prototype, Events, {
+
+    // Initialize is an empty function by default. Override it with your own
+    // initialization logic.
+    initialize: function(){},
+
+    // Manually bind a single named route to a callback. For example:
+    //
+    //     this.route('search/:query/p:num', 'search', function(query, num) {
+    //       ...
+    //     });
+    //
+    route: function(route, name, callback) {
+      if (!_.isRegExp(route)) route = this._routeToRegExp(route);
+      if (_.isFunction(name)) {
+        callback = name;
+        name = '';
+      }
+      if (!callback) callback = this[name];
+      var router = this;
+      Backbone.history.route(route, function(fragment) {
+        var args = router._extractParameters(route, fragment);
+        router.execute(callback, args);
+        router.trigger.apply(router, ['route:' + name].concat(args));
+        router.trigger('route', name, args);
+        Backbone.history.trigger('route', router, name, args);
+      });
+      return this;
+    },
+
+    // Execute a route handler with the provided parameters.  This is an
+    // excellent place to do pre-route setup or post-route cleanup.
+    execute: function(callback, args) {
+      if (callback) callback.apply(this, args);
+    },
+
+    // Simple proxy to `Backbone.history` to save a fragment into the history.
+    navigate: function(fragment, options) {
+      Backbone.history.navigate(fragment, options);
+      return this;
+    },
+
+    // Bind all defined routes to `Backbone.history`. We have to reverse the
+    // order of the routes here to support behavior where the most general
+    // routes can be defined at the bottom of the route map.
+    _bindRoutes: function() {
+      if (!this.routes) return;
+      this.routes = _.result(this, 'routes');
+      var route, routes = _.keys(this.routes);
+      while ((route = routes.pop()) != null) {
+        this.route(route, this.routes[route]);
+      }
+    },
+
+    // Convert a route string into a regular expression, suitable for matching
+    // against the current location hash.
+    _routeToRegExp: function(route) {
+      route = route.replace(escapeRegExp, '\\$&')
+                   .replace(optionalParam, '(?:$1)?')
+                   .replace(namedParam, function(match, optional) {
+                     return optional ? match : '([^/?]+)';
+                   })
+                   .replace(splatParam, '([^?]*?)');
+      return new RegExp('^' + route + '(?:\\?([\\s\\S]*))?$');
+    },
+
+    // Given a route, and a URL fragment that it matches, return the array of
+    // extracted decoded parameters. Empty or unmatched parameters will be
+    // treated as `null` to normalize cross-browser behavior.
+    _extractParameters: function(route, fragment) {
+      var params = route.exec(fragment).slice(1);
+      return _.map(params, function(param, i) {
+        // Don't decode the search params.
+        if (i === params.length - 1) return param || null;
+        return param ? decodeURIComponent(param) : null;
+      });
+    }
+
+  });
+
+  // Backbone.History
+  // ----------------
+
+  // Handles cross-browser history management, based on either
+  // [pushState](http://diveintohtml5.info/history.html) and real URLs, or
+  // [onhashchange](https://developer.mozilla.org/en-US/docs/DOM/window.onhashchange)
+  // and URL fragments. If the browser supports neither (old IE, natch),
+  // falls back to polling.
+  var History = Backbone.History = function() {
+    this.handlers = [];
+    _.bindAll(this, 'checkUrl');
+
+    // Ensure that `History` can be used outside of the browser.
+    if (typeof window !== 'undefined') {
+      this.location = window.location;
+      this.history = window.history;
+    }
+  };
+
+  // Cached regex for stripping a leading hash/slash and trailing space.
+  var routeStripper = /^[#\/]|\s+$/g;
+
+  // Cached regex for stripping leading and trailing slashes.
+  var rootStripper = /^\/+|\/+$/g;
+
+  // Cached regex for detecting MSIE.
+  var isExplorer = /msie [\w.]+/;
+
+  // Cached regex for removing a trailing slash.
+  var trailingSlash = /\/$/;
+
+  // Cached regex for stripping urls of hash.
+  var pathStripper = /#.*$/;
+
+  // Has the history handling already been started?
+  History.started = false;
+
+  // Set up all inheritable **Backbone.History** properties and methods.
+  _.extend(History.prototype, Events, {
+
+    // The default interval to poll for hash changes, if necessary, is
+    // twenty times a second.
+    interval: 50,
+
+    // Are we at the app root?
+    atRoot: function() {
+      return this.location.pathname.replace(/[^\/]$/, '$&/') === this.root;
+    },
+
+    // Gets the true hash value. Cannot use location.hash directly due to bug
+    // in Firefox where location.hash will always be decoded.
+    getHash: function(window) {
+      var match = (window || this).location.href.match(/#(.*)$/);
+      return match ? match[1] : '';
+    },
+
+    // Get the cross-browser normalized URL fragment, either from the URL,
+    // the hash, or the override.
+    getFragment: function(fragment, forcePushState) {
+      if (fragment == null) {
+        if (this._hasPushState || !this._wantsHashChange || forcePushState) {
+          fragment = decodeURI(this.location.pathname + this.location.search);
+          var root = this.root.replace(trailingSlash, '');
+          if (!fragment.indexOf(root)) fragment = fragment.slice(root.length);
+        } else {
+          fragment = this.getHash();
+        }
+      }
+      return fragment.replace(routeStripper, '');
+    },
+
+    // Start the hash change handling, returning `true` if the current URL matches
+    // an existing route, and `false` otherwise.
+    start: function(options) {
+      if (History.started) throw new Error("Backbone.history has already been started");
+      History.started = true;
+
+      // Figure out the initial configuration. Do we need an iframe?
+      // Is pushState desired ... is it available?
+      this.options          = _.extend({root: '/'}, this.options, options);
+      this.root             = this.options.root;
+      this._wantsHashChange = this.options.hashChange !== false;
+      this._wantsPushState  = !!this.options.pushState;
+      this._hasPushState    = !!(this.options.pushState && this.history && this.history.pushState);
+      var fragment          = this.getFragment();
+      var docMode           = document.documentMode;
+      var oldIE             = (isExplorer.exec(navigator.userAgent.toLowerCase()) && (!docMode || docMode <= 7));
+
+      // Normalize root to always include a leading and trailing slash.
+      this.root = ('/' + this.root + '/').replace(rootStripper, '/');
+
+      if (oldIE && this._wantsHashChange) {
+        var frame = Backbone.$('<iframe src="javascript:0" tabindex="-1">');
+        this.iframe = frame.hide().appendTo('body')[0].contentWindow;
+        this.navigate(fragment);
+      }
+
+      // Depending on whether we're using pushState or hashes, and whether
+      // 'onhashchange' is supported, determine how we check the URL state.
+      if (this._hasPushState) {
+        Backbone.$(window).on('popstate', this.checkUrl);
+      } else if (this._wantsHashChange && ('onhashchange' in window) && !oldIE) {
+        Backbone.$(window).on('hashchange', this.checkUrl);
+      } else if (this._wantsHashChange) {
+        this._checkUrlInterval = setInterval(this.checkUrl, this.interval);
+      }
+
+      // Determine if we need to change the base url, for a pushState link
+      // opened by a non-pushState browser.
+      this.fragment = fragment;
+      var loc = this.location;
+
+      // Transition from hashChange to pushState or vice versa if both are
+      // requested.
+      if (this._wantsHashChange && this._wantsPushState) {
+
+        // If we've started off with a route from a `pushState`-enabled
+        // browser, but we're currently in a browser that doesn't support it...
+        if (!this._hasPushState && !this.atRoot()) {
+          this.fragment = this.getFragment(null, true);
+          this.location.replace(this.root + '#' + this.fragment);
+          // Return immediately as browser will do redirect to new url
+          return true;
+
+        // Or if we've started out with a hash-based route, but we're currently
+        // in a browser where it could be `pushState`-based instead...
+        } else if (this._hasPushState && this.atRoot() && loc.hash) {
+          this.fragment = this.getHash().replace(routeStripper, '');
+          this.history.replaceState({}, document.title, this.root + this.fragment);
+        }
+
+      }
+
+      if (!this.options.silent) return this.loadUrl();
+    },
+
+    // Disable Backbone.history, perhaps temporarily. Not useful in a real app,
+    // but possibly useful for unit testing Routers.
+    stop: function() {
+      Backbone.$(window).off('popstate', this.checkUrl).off('hashchange', this.checkUrl);
+      if (this._checkUrlInterval) clearInterval(this._checkUrlInterval);
+      History.started = false;
+    },
+
+    // Add a route to be tested when the fragment changes. Routes added later
+    // may override previous routes.
+    route: function(route, callback) {
+      this.handlers.unshift({route: route, callback: callback});
+    },
+
+    // Checks the current URL to see if it has changed, and if it has,
+    // calls `loadUrl`, normalizing across the hidden iframe.
+    checkUrl: function(e) {
+      var current = this.getFragment();
+      if (current === this.fragment && this.iframe) {
+        current = this.getFragment(this.getHash(this.iframe));
+      }
+      if (current === this.fragment) return false;
+      if (this.iframe) this.navigate(current);
+      this.loadUrl();
+    },
+
+    // Attempt to load the current URL fragment. If a route succeeds with a
+    // match, returns `true`. If no defined routes matches the fragment,
+    // returns `false`.
+    loadUrl: function(fragment) {
+      fragment = this.fragment = this.getFragment(fragment);
+      return _.any(this.handlers, function(handler) {
+        if (handler.route.test(fragment)) {
+          handler.callback(fragment);
+          return true;
+        }
+      });
+    },
+
+    // Save a fragment into the hash history, or replace the URL state if the
+    // 'replace' option is passed. You are responsible for properly URL-encoding
+    // the fragment in advance.
+    //
+    // The options object can contain `trigger: true` if you wish to have the
+    // route callback be fired (not usually desirable), or `replace: true`, if
+    // you wish to modify the current URL without adding an entry to the history.
+    navigate: function(fragment, options) {
+      if (!History.started) return false;
+      if (!options || options === true) options = {trigger: !!options};
+
+      var url = this.root + (fragment = this.getFragment(fragment || ''));
+
+      // Strip the hash for matching.
+      fragment = fragment.replace(pathStripper, '');
+
+      if (this.fragment === fragment) return;
+      this.fragment = fragment;
+
+      // Don't include a trailing slash on the root.
+      if (fragment === '' && url !== '/') url = url.slice(0, -1);
+
+      // If pushState is available, we use it to set the fragment as a real URL.
+      if (this._hasPushState) {
+        this.history[options.replace ? 'replaceState' : 'pushState']({}, document.title, url);
+
+      // If hash changes haven't been explicitly disabled, update the hash
+      // fragment to store history.
+      } else if (this._wantsHashChange) {
+        this._updateHash(this.location, fragment, options.replace);
+        if (this.iframe && (fragment !== this.getFragment(this.getHash(this.iframe)))) {
+          // Opening and closing the iframe tricks IE7 and earlier to push a
+          // history entry on hash-tag change.  When replace is true, we don't
+          // want this.
+          if(!options.replace) this.iframe.document.open().close();
+          this._updateHash(this.iframe.location, fragment, options.replace);
+        }
+
+      // If you've told us that you explicitly don't want fallback hashchange-
+      // based history, then `navigate` becomes a page refresh.
+      } else {
+        return this.location.assign(url);
+      }
+      if (options.trigger) return this.loadUrl(fragment);
+    },
+
+    // Update the hash location, either replacing the current entry, or adding
+    // a new one to the browser history.
+    _updateHash: function(location, fragment, replace) {
+      if (replace) {
+        var href = location.href.replace(/(javascript:|#).*$/, '');
+        location.replace(href + '#' + fragment);
+      } else {
+        // Some browsers require that `hash` contains a leading #.
+        location.hash = '#' + fragment;
+      }
+    }
+
+  });
+
+  // Create the default Backbone.history.
+  Backbone.history = new History;
+
+  // Helpers
+  // -------
+
+  // Helper function to correctly set up the prototype chain, for subclasses.
+  // Similar to `goog.inherits`, but uses a hash of prototype properties and
+  // class properties to be extended.
+  var extend = function(protoProps, staticProps) {
+    var parent = this;
+    var child;
+
+    // The constructor function for the new subclass is either defined by you
+    // (the "constructor" property in your `extend` definition), or defaulted
+    // by us to simply call the parent's constructor.
+    if (protoProps && _.has(protoProps, 'constructor')) {
+      child = protoProps.constructor;
+    } else {
+      child = function(){ return parent.apply(this, arguments); };
+    }
+
+    // Add static properties to the constructor function, if supplied.
+    _.extend(child, parent, staticProps);
+
+    // Set the prototype chain to inherit from `parent`, without calling
+    // `parent`'s constructor function.
+    var Surrogate = function(){ this.constructor = child; };
+    Surrogate.prototype = parent.prototype;
+    child.prototype = new Surrogate;
+
+    // Add prototype properties (instance properties) to the subclass,
+    // if supplied.
+    if (protoProps) _.extend(child.prototype, protoProps);
+
+    // Set a convenience property in case the parent's prototype is needed
+    // later.
+    child.__super__ = parent.prototype;
+
+    return child;
+  };
+
+  // Set up inheritance for the model, collection, router, view and history.
+  Model.extend = Collection.extend = Router.extend = View.extend = History.extend = extend;
+
+  // Throw an error when a URL is needed, and none is supplied.
+  var urlError = function() {
+    throw new Error('A "url" property or function must be specified');
+  };
+
+  // Wrap an optional error callback with a fallback error event.
+  var wrapError = function(model, options) {
+    var error = options.error;
+    options.error = function(resp) {
+      if (error) error(model, resp, options);
+      model.trigger('error', model, resp, options);
+    };
+  };
+
+  return Backbone;
+
+}));
+
 ;;(function(){
 
 /**
@@ -13898,8 +22665,3086 @@ require.alias("chai/index.js", "chai/index.js");if (typeof exports == "object") 
 } else {
   this["chai"] = require("chai");
 }})();
+;/*!
+ * Chaplin 1.0.0
+ *
+ * Chaplin may be freely distributed under the MIT license.
+ * For all details and documentation:
+ * http://chaplinjs.org
+ */
+
+(function(){
+
+var loader = (function() {
+  var modules = {};
+  var cache = {};
+
+  var dummy = function() {return function() {};};
+  var initModule = function(name, definition) {
+    var module = {id: name, exports: {}};
+    definition(module.exports, dummy(), module);
+    var exports = cache[name] = module.exports;
+    return exports;
+  };
+
+  var loader = function(path) {
+    if (cache.hasOwnProperty(path)) return cache[path];
+    if (modules.hasOwnProperty(path)) return initModule(path, modules[path]);
+    throw new Error('Cannot find module "' + path + '"');
+  };
+
+  loader.register = function(bundle, fn) {
+    modules[bundle] = fn;
+  };
+  return loader;
+})();
+
+loader.register('chaplin/application', function(e, r, module) {
+'use strict';
+
+var Application, Backbone, Composer, Dispatcher, EventBroker, Layout, Router, mediator, _;
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+Dispatcher = loader('chaplin/dispatcher');
+
+Layout = loader('chaplin/views/layout');
+
+Composer = loader('chaplin/composer');
+
+Router = loader('chaplin/lib/router');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+mediator = loader('chaplin/mediator');
+
+module.exports = Application = (function() {
+
+  Application.extend = Backbone.Model.extend;
+
+  _.extend(Application.prototype, EventBroker);
+
+  Application.prototype.title = '';
+
+  Application.prototype.dispatcher = null;
+
+  Application.prototype.layout = null;
+
+  Application.prototype.router = null;
+
+  Application.prototype.composer = null;
+
+  Application.prototype.started = false;
+
+  function Application(options) {
+    if (options == null) {
+      options = {};
+    }
+    this.initialize(options);
+  }
+
+  Application.prototype.initialize = function(options) {
+    if (options == null) {
+      options = {};
+    }
+    if (this.started) {
+      throw new Error('Application#initialize: App was already started');
+    }
+    this.initRouter(options.routes, options);
+    this.initDispatcher(options);
+    this.initLayout(options);
+    this.initComposer(options);
+    this.initMediator();
+    return this.start();
+  };
+
+  Application.prototype.initDispatcher = function(options) {
+    return this.dispatcher = new Dispatcher(options);
+  };
+
+  Application.prototype.initLayout = function(options) {
+    var _ref;
+    if (options == null) {
+      options = {};
+    }
+    if ((_ref = options.title) == null) {
+      options.title = this.title;
+    }
+    return this.layout = new Layout(options);
+  };
+
+  Application.prototype.initComposer = function(options) {
+    if (options == null) {
+      options = {};
+    }
+    return this.composer = new Composer(options);
+  };
+
+  Application.prototype.initMediator = function() {
+    return mediator.seal();
+  };
+
+  Application.prototype.initRouter = function(routes, options) {
+    this.router = new Router(options);
+    return typeof routes === "function" ? routes(this.router.match) : void 0;
+  };
+
+  Application.prototype.start = function() {
+    this.router.startHistory();
+    this.started = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  Application.prototype.disposed = false;
+
+  Application.prototype.dispose = function() {
+    var prop, properties, _i, _len;
+    if (this.disposed) {
+      return;
+    }
+    properties = ['dispatcher', 'layout', 'router', 'composer'];
+    for (_i = 0, _len = properties.length; _i < _len; _i++) {
+      prop = properties[_i];
+      if (this[prop] != null) {
+        this[prop].dispose();
+      }
+    }
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Application;
+
+})();
+
+});;loader.register('chaplin/mediator', function(e, r, module) {
+'use strict';
+
+var Backbone, handlers, mediator, support, utils, _,
+  __slice = [].slice;
+
+Backbone = loader('backbone');
+
+_ = loader('underscore');
+
+support = loader('chaplin/lib/support');
+
+utils = loader('chaplin/lib/utils');
+
+mediator = {};
+
+mediator.subscribe = Backbone.Events.on;
+
+mediator.unsubscribe = Backbone.Events.off;
+
+mediator.publish = Backbone.Events.trigger;
+
+mediator._callbacks = null;
+
+handlers = mediator._handlers = {};
+
+mediator.setHandler = function(name, method, instance) {
+  return handlers[name] = {
+    instance: instance,
+    method: method
+  };
+};
+
+mediator.execute = function() {
+  var args, handler, name, nameOrObj, silent;
+  nameOrObj = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+  silent = false;
+  if (typeof nameOrObj === 'object') {
+    silent = nameOrObj.silent;
+    name = nameOrObj.name;
+  } else {
+    name = nameOrObj;
+  }
+  handler = handlers[name];
+  if (handler) {
+    return handler.method.apply(handler.instance, args);
+  } else if (!silent) {
+    throw new Error("mediator.execute: " + name + " handler is not defined");
+  }
+};
+
+mediator.removeHandlers = function(instanceOrNames) {
+  var handler, name, _i, _len;
+  if (!instanceOrNames) {
+    mediator._handlers = {};
+  }
+  if (utils.isArray(instanceOrNames)) {
+    for (_i = 0, _len = instanceOrNames.length; _i < _len; _i++) {
+      name = instanceOrNames[_i];
+      delete handlers[name];
+    }
+  } else {
+    for (name in handlers) {
+      handler = handlers[name];
+      if (handler.instance === instanceOrNames) {
+        delete handlers[name];
+      }
+    }
+  }
+};
+
+utils.readonly(mediator, 'subscribe', 'unsubscribe', 'publish', 'setHandler', 'execute', 'removeHandlers');
+
+mediator.seal = function() {
+  if (support.propertyDescriptors && Object.seal) {
+    return Object.seal(mediator);
+  }
+};
+
+utils.readonly(mediator, 'seal');
+
+module.exports = mediator;
+
+});;loader.register('chaplin/dispatcher', function(e, r, module) {
+'use strict';
+
+var Backbone, Dispatcher, EventBroker, mediator, utils, _;
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+mediator = loader('chaplin/mediator');
+
+utils = loader('chaplin/lib/utils');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+module.exports = Dispatcher = (function() {
+
+  Dispatcher.extend = Backbone.Model.extend;
+
+  _.extend(Dispatcher.prototype, EventBroker);
+
+  Dispatcher.prototype.previousRoute = null;
+
+  Dispatcher.prototype.currentController = null;
+
+  Dispatcher.prototype.currentRoute = null;
+
+  Dispatcher.prototype.currentParams = null;
+
+  Dispatcher.prototype.currentQuery = null;
+
+  function Dispatcher() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Dispatcher.prototype.initialize = function(options) {
+    if (options == null) {
+      options = {};
+    }
+    this.settings = _.defaults(options, {
+      controllerPath: 'controllers/',
+      controllerSuffix: '_controller'
+    });
+    return this.subscribeEvent('router:match', this.dispatch);
+  };
+
+  Dispatcher.prototype.dispatch = function(route, params, options) {
+    var _ref, _ref1,
+      _this = this;
+    params = params ? _.extend({}, params) : {};
+    options = options ? _.extend({}, options) : {};
+    if (!(options.query != null)) {
+      options.query = {};
+    }
+    if (options.forceStartup !== true) {
+      options.forceStartup = false;
+    }
+    if (!options.forceStartup && ((_ref = this.currentRoute) != null ? _ref.controller : void 0) === route.controller && ((_ref1 = this.currentRoute) != null ? _ref1.action : void 0) === route.action && _.isEqual(this.currentParams, params) && _.isEqual(this.currentQuery, options.query)) {
+      return;
+    }
+    return this.loadController(route.controller, function(Controller) {
+      return _this.controllerLoaded(route, params, options, Controller);
+    });
+  };
+
+  Dispatcher.prototype.loadController = function(name, handler) {
+    var fileName, moduleName,
+      _this = this;
+    fileName = name + this.settings.controllerSuffix;
+    moduleName = this.settings.controllerPath + fileName;
+    if (typeof define !== "undefined" && define !== null ? define.amd : void 0) {
+      return require([moduleName], handler);
+    } else {
+      return setTimeout(function() {
+        return handler(require(moduleName));
+      }, 0);
+    }
+  };
+
+  Dispatcher.prototype.controllerLoaded = function(route, params, options, Controller) {
+    var controller, prev, previous;
+    if (this.nextPreviousRoute = this.currentRoute) {
+      previous = _.extend({}, this.nextPreviousRoute);
+      if (this.currentParams != null) {
+        previous.params = this.currentParams;
+      }
+      if (previous.previous) {
+        delete previous.previous;
+      }
+      prev = {
+        previous: previous
+      };
+    }
+    this.nextCurrentRoute = _.extend({}, route, prev);
+    controller = new Controller(params, this.nextCurrentRoute, options);
+    return this.executeBeforeAction(controller, this.nextCurrentRoute, params, options);
+  };
+
+  Dispatcher.prototype.executeAction = function(controller, route, params, options) {
+    if (this.currentController) {
+      this.publishEvent('beforeControllerDispose', this.currentController);
+      this.currentController.dispose(params, route, options);
+    }
+    this.currentController = controller;
+    this.currentParams = params;
+    this.currentQuery = options.query;
+    controller[route.action](params, route, options);
+    if (controller.redirected) {
+      return;
+    }
+    return this.publishEvent('dispatcher:dispatch', this.currentController, params, route, options);
+  };
+
+  Dispatcher.prototype.executeBeforeAction = function(controller, route, params, options) {
+    var before, executeAction, promise,
+      _this = this;
+    before = controller.beforeAction;
+    executeAction = function() {
+      if (controller.redirected || _this.currentRoute && route === _this.currentRoute) {
+        _this.nextPreviousRoute = _this.nextCurrentRoute = null;
+        controller.dispose();
+        return;
+      }
+      _this.previousRoute = _this.nextPreviousRoute;
+      _this.currentRoute = _this.nextCurrentRoute;
+      _this.nextPreviousRoute = _this.nextCurrentRoute = null;
+      return _this.executeAction(controller, route, params, options);
+    };
+    if (!before) {
+      executeAction();
+      return;
+    }
+    if (typeof before !== 'function') {
+      throw new TypeError('Controller#beforeAction: function expected. ' + 'Old object-like form is not supported.');
+    }
+    promise = controller.beforeAction(params, route, options);
+    if (promise && promise.then) {
+      return promise.then(executeAction);
+    } else {
+      return executeAction();
+    }
+  };
+
+  Dispatcher.prototype.disposed = false;
+
+  Dispatcher.prototype.dispose = function() {
+    if (this.disposed) {
+      return;
+    }
+    this.unsubscribeAllEvents();
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Dispatcher;
+
+})();
+
+});;loader.register('chaplin/composer', function(e, r, module) {
+'use strict';
+
+var Backbone, Composer, Composition, EventBroker, mediator, utils, _;
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+mediator = loader('chaplin/mediator');
+
+utils = loader('chaplin/lib/utils');
+
+Composition = loader('chaplin/lib/composition');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+module.exports = Composer = (function() {
+
+  Composer.extend = Backbone.Model.extend;
+
+  _.extend(Composer.prototype, EventBroker);
+
+  Composer.prototype.compositions = null;
+
+  function Composer() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Composer.prototype.initialize = function(options) {
+    if (options == null) {
+      options = {};
+    }
+    this.compositions = {};
+    mediator.setHandler('composer:compose', this.compose, this);
+    mediator.setHandler('composer:retrieve', this.retrieve, this);
+    return this.subscribeEvent('dispatcher:dispatch', this.cleanup);
+  };
+
+  Composer.prototype.compose = function(name, second, third) {
+    if (typeof second === 'function') {
+      if (third || second.prototype.dispose) {
+        if (second.prototype instanceof Composition) {
+          return this._compose(name, {
+            composition: second,
+            options: third
+          });
+        } else {
+          return this._compose(name, {
+            options: third,
+            compose: function() {
+              var autoRender, disabledAutoRender;
+              this.item = new second(this.options);
+              autoRender = this.item.autoRender;
+              disabledAutoRender = autoRender === void 0 || !autoRender;
+              if (disabledAutoRender && typeof this.item.render === 'function') {
+                return this.item.render();
+              }
+            }
+          });
+        }
+      }
+      return this._compose(name, {
+        compose: second
+      });
+    }
+    if (typeof third === 'function') {
+      return this._compose(name, {
+        compose: third,
+        options: second
+      });
+    }
+    return this._compose(name, second);
+  };
+
+  Composer.prototype._compose = function(name, options) {
+    var composition, current, isPromise, returned;
+    if (typeof options.compose !== 'function' && !(options.composition != null)) {
+      throw new Error('Composer#compose was used incorrectly');
+    }
+    if (options.composition != null) {
+      composition = new options.composition(options.options);
+    } else {
+      composition = new Composition(options.options);
+      composition.compose = options.compose;
+      if (options.check) {
+        composition.check = options.check;
+      }
+    }
+    current = this.compositions[name];
+    isPromise = false;
+    if (current && current.check(composition.options)) {
+      current.stale(false);
+    } else {
+      if (current) {
+        current.dispose();
+      }
+      returned = composition.compose(composition.options);
+      isPromise = typeof (returned != null ? returned.then : void 0) === 'function';
+      composition.stale(false);
+      this.compositions[name] = composition;
+    }
+    if (isPromise) {
+      return returned;
+    } else {
+      return this.compositions[name].item;
+    }
+  };
+
+  Composer.prototype.retrieve = function(name) {
+    var active;
+    active = this.compositions[name];
+    if (active && !active.stale()) {
+      return active.item;
+    } else {
+      return void 0;
+    }
+  };
+
+  Composer.prototype.cleanup = function() {
+    var composition, name, _ref;
+    _ref = this.compositions;
+    for (name in _ref) {
+      composition = _ref[name];
+      if (composition.stale()) {
+        composition.dispose();
+        delete this.compositions[name];
+      } else {
+        composition.stale(true);
+      }
+    }
+  };
+
+  Composer.prototype.dispose = function() {
+    var composition, name, _ref;
+    if (this.disposed) {
+      return;
+    }
+    this.unsubscribeAllEvents();
+    mediator.removeHandlers(this);
+    _ref = this.compositions;
+    for (name in _ref) {
+      composition = _ref[name];
+      composition.dispose();
+    }
+    delete this.compositions;
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Composer;
+
+})();
+
+});;loader.register('chaplin/controllers/controller', function(e, r, module) {
+'use strict';
+
+var Backbone, Controller, EventBroker, mediator, utils, _,
+  __slice = [].slice,
+  __hasProp = {}.hasOwnProperty;
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+utils = loader('chaplin/lib/utils');
+
+mediator = loader('chaplin/mediator');
+
+module.exports = Controller = (function() {
+
+  Controller.extend = Backbone.Model.extend;
+
+  _.extend(Controller.prototype, Backbone.Events);
+
+  _.extend(Controller.prototype, EventBroker);
+
+  Controller.prototype.view = null;
+
+  Controller.prototype.redirected = false;
+
+  function Controller() {
+    this.initialize.apply(this, arguments);
+  }
+
+  Controller.prototype.initialize = function() {};
+
+  Controller.prototype.beforeAction = function() {};
+
+  Controller.prototype.adjustTitle = function(subtitle) {
+    return mediator.execute('adjustTitle', subtitle);
+  };
+
+  Controller.prototype.reuse = function(name) {
+    var method;
+    method = arguments.length === 1 ? 'retrieve' : 'compose';
+    return mediator.execute.apply(mediator, ["composer:" + method].concat(__slice.call(arguments)));
+  };
+
+  Controller.prototype.compose = function() {
+    throw new Error('Controller#compose was moved to Controller#reuse');
+  };
+
+  Controller.prototype.redirectTo = function(pathDesc, params, options) {
+    this.redirected = true;
+    return utils.redirectTo(pathDesc, params, options);
+  };
+
+  Controller.prototype.disposed = false;
+
+  Controller.prototype.dispose = function() {
+    var obj, prop;
+    if (this.disposed) {
+      return;
+    }
+    for (prop in this) {
+      if (!__hasProp.call(this, prop)) continue;
+      obj = this[prop];
+      if (!(obj && typeof obj.dispose === 'function')) {
+        continue;
+      }
+      obj.dispose();
+      delete this[prop];
+    }
+    this.unsubscribeAllEvents();
+    this.stopListening();
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Controller;
+
+})();
+
+});;loader.register('chaplin/models/collection', function(e, r, module) {
+'use strict';
+
+var Backbone, Collection, EventBroker, Model, utils, _,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+Model = loader('chaplin/models/model');
+
+utils = loader('chaplin/lib/utils');
+
+module.exports = Collection = (function(_super) {
+
+  __extends(Collection, _super);
+
+  function Collection() {
+    return Collection.__super__.constructor.apply(this, arguments);
+  }
+
+  _.extend(Collection.prototype, EventBroker);
+
+  Collection.prototype.model = Model;
+
+  Collection.prototype.serialize = function() {
+    return this.map(utils.serialize);
+  };
+
+  Collection.prototype.disposed = false;
+
+  Collection.prototype.dispose = function() {
+    var prop, properties, _i, _len;
+    if (this.disposed) {
+      return;
+    }
+    this.trigger('dispose', this);
+    this.reset([], {
+      silent: true
+    });
+    this.unsubscribeAllEvents();
+    this.stopListening();
+    this.off();
+    properties = ['model', 'models', '_byId', '_byCid', '_callbacks'];
+    for (_i = 0, _len = properties.length; _i < _len; _i++) {
+      prop = properties[_i];
+      delete this[prop];
+    }
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Collection;
+
+})(Backbone.Collection);
+
+});;loader.register('chaplin/models/model', function(e, r, module) {
+'use strict';
+
+var Backbone, EventBroker, Model, serializeAttributes, serializeModelAttributes, utils, _,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+utils = loader('chaplin/lib/utils');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+serializeAttributes = function(model, attributes, modelStack) {
+  var delegator, key, otherModel, serializedModels, value, _i, _len, _ref;
+  delegator = utils.beget(attributes);
+  if (modelStack == null) {
+    modelStack = {};
+  }
+  modelStack[model.cid] = true;
+  for (key in attributes) {
+    value = attributes[key];
+    if (value instanceof Backbone.Model) {
+      delegator[key] = serializeModelAttributes(value, model, modelStack);
+    } else if (value instanceof Backbone.Collection) {
+      serializedModels = [];
+      _ref = value.models;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        otherModel = _ref[_i];
+        serializedModels.push(serializeModelAttributes(otherModel, model, modelStack));
+      }
+      delegator[key] = serializedModels;
+    }
+  }
+  delete modelStack[model.cid];
+  return delegator;
+};
+
+serializeModelAttributes = function(model, currentModel, modelStack) {
+  var attributes;
+  if (model === currentModel || model.cid in modelStack) {
+    return null;
+  }
+  attributes = typeof model.getAttributes === 'function' ? model.getAttributes() : model.attributes;
+  return serializeAttributes(model, attributes, modelStack);
+};
+
+module.exports = Model = (function(_super) {
+
+  __extends(Model, _super);
+
+  function Model() {
+    return Model.__super__.constructor.apply(this, arguments);
+  }
+
+  _.extend(Model.prototype, EventBroker);
+
+  Model.prototype.getAttributes = function() {
+    return this.attributes;
+  };
+
+  Model.prototype.serialize = function() {
+    return serializeAttributes(this, this.getAttributes());
+  };
+
+  Model.prototype.disposed = false;
+
+  Model.prototype.dispose = function() {
+    var prop, properties, _i, _len;
+    if (this.disposed) {
+      return;
+    }
+    this.trigger('dispose', this);
+    this.unsubscribeAllEvents();
+    this.stopListening();
+    this.off();
+    properties = ['collection', 'attributes', 'changed', '_escapedAttributes', '_previousAttributes', '_silent', '_pending', '_callbacks'];
+    for (_i = 0, _len = properties.length; _i < _len; _i++) {
+      prop = properties[_i];
+      delete this[prop];
+    }
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Model;
+
+})(Backbone.Model);
+
+});;loader.register('chaplin/views/layout', function(e, r, module) {
+'use strict';
+
+var $, Backbone, EventBroker, Layout, View, mediator, utils, _,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+mediator = loader('chaplin/mediator');
+
+utils = loader('chaplin/lib/utils');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+View = loader('chaplin/views/view');
+
+$ = Backbone.$;
+
+module.exports = Layout = (function(_super) {
+
+  __extends(Layout, _super);
+
+  Layout.prototype.el = 'body';
+
+  Layout.prototype.keepElement = true;
+
+  Layout.prototype.title = '';
+
+  Layout.prototype.globalRegions = null;
+
+  Layout.prototype.listen = {
+    'beforeControllerDispose mediator': 'scroll'
+  };
+
+  function Layout(options) {
+    if (options == null) {
+      options = {};
+    }
+    this.openLink = __bind(this.openLink, this);
+
+    this.globalRegions = [];
+    this.title = options.title;
+    if (options.regions) {
+      this.regions = options.regions;
+    }
+    this.settings = _.defaults(options, {
+      titleTemplate: function(data) {
+        var st;
+        st = data.subtitle ? "" + data.subtitle + " \u2013 " : '';
+        return st + data.title;
+      },
+      openExternalToBlank: false,
+      routeLinks: 'a, .go-to',
+      skipRouting: '.noscript',
+      scrollTo: [0, 0]
+    });
+    mediator.setHandler('region:show', this.showRegion, this);
+    mediator.setHandler('region:register', this.registerRegionHandler, this);
+    mediator.setHandler('region:unregister', this.unregisterRegionHandler, this);
+    mediator.setHandler('region:find', this.regionByName, this);
+    mediator.setHandler('adjustTitle', this.adjustTitle, this);
+    Layout.__super__.constructor.apply(this, arguments);
+    if (this.settings.routeLinks) {
+      this.startLinkRouting();
+    }
+  }
+
+  Layout.prototype.scroll = function() {
+    var position;
+    position = this.settings.scrollTo;
+    if (position) {
+      return window.scrollTo(position[0], position[1]);
+    }
+  };
+
+  Layout.prototype.adjustTitle = function(subtitle) {
+    var title,
+      _this = this;
+    if (subtitle == null) {
+      subtitle = '';
+    }
+    title = this.settings.titleTemplate({
+      title: this.title,
+      subtitle: subtitle
+    });
+    setTimeout(function() {
+      document.title = title;
+      return _this.publishEvent('adjustTitle', subtitle, title);
+    }, 50);
+    return title;
+  };
+
+  Layout.prototype.startLinkRouting = function() {
+    var route;
+    route = this.settings.routeLinks;
+    if (!route) {
+      return;
+    }
+    if ($) {
+      return this.$el.on('click', route, this.openLink);
+    } else {
+      return this.delegate('click', route, this.openLink);
+    }
+  };
+
+  Layout.prototype.stopLinkRouting = function() {
+    var route;
+    route = this.settings.routeLinks;
+    if ($) {
+      if (route) {
+        return this.$el.off('click', route);
+      }
+    } else {
+      return this.undelegate('click', route, this.openLink);
+    }
+  };
+
+  Layout.prototype.isExternalLink = function(link) {
+    var _ref, _ref1;
+    return link.target === '_blank' || link.rel === 'external' || ((_ref = link.protocol) !== 'http:' && _ref !== 'https:' && _ref !== 'file:') || ((_ref1 = link.hostname) !== location.hostname && _ref1 !== '');
+  };
+
+  Layout.prototype.openLink = function(event) {
+    var el, external, href, isAnchor, skipRouting, type;
+    if (utils.modifierKeyPressed(event)) {
+      return;
+    }
+    el = $ ? event.currentTarget : event.delegateTarget;
+    isAnchor = el.nodeName === 'A';
+    href = el.getAttribute('href') || el.getAttribute('data-href') || null;
+    if (!(href != null) || href === '' || href.charAt(0) === '#') {
+      return;
+    }
+    skipRouting = this.settings.skipRouting;
+    type = typeof skipRouting;
+    if (type === 'function' && !skipRouting(href, el) || type === 'string' && ($ ? $(el).is(skipRouting) : Backbone.utils.matchesSelector(el, skipRouting))) {
+      return;
+    }
+    external = isAnchor && this.isExternalLink(el);
+    if (external) {
+      if (this.settings.openExternalToBlank) {
+        event.preventDefault();
+        window.open(href);
+      }
+      return;
+    }
+    utils.redirectTo({
+      url: href
+    });
+    event.preventDefault();
+  };
+
+  Layout.prototype.registerRegionHandler = function(instance, name, selector) {
+    if (name != null) {
+      return this.registerGlobalRegion(instance, name, selector);
+    } else {
+      return this.registerGlobalRegions(instance);
+    }
+  };
+
+  Layout.prototype.registerGlobalRegion = function(instance, name, selector) {
+    this.unregisterGlobalRegion(instance, name);
+    return this.globalRegions.unshift({
+      instance: instance,
+      name: name,
+      selector: selector
+    });
+  };
+
+  Layout.prototype.registerGlobalRegions = function(instance) {
+    var name, selector, version, _i, _len, _ref;
+    _ref = utils.getAllPropertyVersions(instance, 'regions');
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      version = _ref[_i];
+      for (name in version) {
+        selector = version[name];
+        this.registerGlobalRegion(instance, name, selector);
+      }
+    }
+  };
+
+  Layout.prototype.unregisterRegionHandler = function(instance, name) {
+    if (name != null) {
+      return this.unregisterGlobalRegion(instance, name);
+    } else {
+      return this.unregisterGlobalRegions(instance);
+    }
+  };
+
+  Layout.prototype.unregisterGlobalRegion = function(instance, name) {
+    var cid, region;
+    cid = instance.cid;
+    return this.globalRegions = (function() {
+      var _i, _len, _ref, _results;
+      _ref = this.globalRegions;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        region = _ref[_i];
+        if (region.instance.cid !== cid || region.name !== name) {
+          _results.push(region);
+        }
+      }
+      return _results;
+    }).call(this);
+  };
+
+  Layout.prototype.unregisterGlobalRegions = function(instance) {
+    var region;
+    return this.globalRegions = (function() {
+      var _i, _len, _ref, _results;
+      _ref = this.globalRegions;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        region = _ref[_i];
+        if (region.instance.cid !== instance.cid) {
+          _results.push(region);
+        }
+      }
+      return _results;
+    }).call(this);
+  };
+
+  Layout.prototype.regionByName = function(name) {
+    var reg, _i, _len, _ref;
+    _ref = this.globalRegions;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      reg = _ref[_i];
+      if (reg.name === name && !reg.instance.stale) {
+        return reg;
+      }
+    }
+  };
+
+  Layout.prototype.showRegion = function(name, instance) {
+    var region;
+    region = this.regionByName(name);
+    if (!region) {
+      throw new Error("No region registered under " + name);
+    }
+    return instance.container = region.selector === '' ? $ ? region.instance.$el : region.instance.el : region.instance.noWrap ? $ ? $(region.instance.container).find(region.selector) : region.instance.container.querySelector(region.selector) : region.instance[$ ? '$' : 'find'](region.selector);
+  };
+
+  Layout.prototype.dispose = function() {
+    var prop, _i, _len, _ref;
+    if (this.disposed) {
+      return;
+    }
+    this.stopLinkRouting();
+    _ref = ['globalRegions', 'title', 'route'];
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      prop = _ref[_i];
+      delete this[prop];
+    }
+    mediator.removeHandlers(this);
+    return Layout.__super__.dispose.apply(this, arguments);
+  };
+
+  return Layout;
+
+})(View);
+
+});;loader.register('chaplin/views/view', function(e, r, module) {
+'use strict';
+
+var $, Backbone, EventBroker, View, attach, bind, mediator, setHTML, utils, _,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+  __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+mediator = loader('chaplin/mediator');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+utils = loader('chaplin/lib/utils');
+
+$ = Backbone.$;
+
+bind = (function() {
+  if (Function.prototype.bind) {
+    return function(item, ctx) {
+      return item.bind(ctx);
+    };
+  } else if (_.bind) {
+    return _.bind;
+  }
+})();
+
+setHTML = (function() {
+  if ($) {
+    return function(elem, html) {
+      return elem.html(html);
+    };
+  } else {
+    return function(elem, html) {
+      return elem.innerHTML = html;
+    };
+  }
+})();
+
+attach = (function() {
+  if ($) {
+    return function(view) {
+      var actual;
+      actual = $(view.container);
+      if (typeof view.containerMethod === 'function') {
+        return view.containerMethod(actual, view.el);
+      } else {
+        return actual[view.containerMethod](view.el);
+      }
+    };
+  } else {
+    return function(view) {
+      var actual;
+      actual = typeof view.container === 'string' ? document.querySelector(view.container) : view.container;
+      if (typeof view.containerMethod === 'function') {
+        return view.containerMethod(actual, view.el);
+      } else {
+        return actual[view.containerMethod](view.el);
+      }
+    };
+  }
+})();
+
+module.exports = View = (function(_super) {
+
+  __extends(View, _super);
+
+  _.extend(View.prototype, EventBroker);
+
+  View.prototype.autoRender = false;
+
+  View.prototype.autoAttach = true;
+
+  View.prototype.container = null;
+
+  View.prototype.containerMethod = $ ? 'append' : 'appendChild';
+
+  View.prototype.regions = null;
+
+  View.prototype.region = null;
+
+  View.prototype.stale = false;
+
+  View.prototype.noWrap = false;
+
+  View.prototype.keepElement = false;
+
+  View.prototype.subviews = null;
+
+  View.prototype.subviewsByName = null;
+
+  View.prototype.optionNames = ['autoAttach', 'autoRender', 'container', 'containerMethod', 'region', 'regions', 'noWrap'];
+
+  function View(options) {
+    var optName, optValue, region, render,
+      _this = this;
+    if (options) {
+      for (optName in options) {
+        optValue = options[optName];
+        if (__indexOf.call(this.optionNames, optName) >= 0) {
+          this[optName] = optValue;
+        }
+      }
+    }
+    render = this.render;
+    this.render = function() {
+      if (_this.disposed) {
+        return false;
+      }
+      render.apply(_this, arguments);
+      if (_this.autoAttach) {
+        _this.attach.apply(_this, arguments);
+      }
+      return _this;
+    };
+    this.subviews = [];
+    this.subviewsByName = {};
+    if (this.noWrap) {
+      if (this.region) {
+        region = mediator.execute('region:find', this.region);
+        if (region != null) {
+          this.el = region.instance.container != null ? region.instance.region != null ? $(region.instance.container).find(region.selector) : region.instance.container : region.instance.$(region.selector);
+        }
+      }
+      if (this.container) {
+        this.el = this.container;
+      }
+    }
+    View.__super__.constructor.apply(this, arguments);
+    this.delegateListeners();
+    if (this.model) {
+      this.listenTo(this.model, 'dispose', this.dispose);
+    }
+    if (this.collection) {
+      this.listenTo(this.collection, 'dispose', function(subject) {
+        if (!subject || subject === _this.collection) {
+          return _this.dispose();
+        }
+      });
+    }
+    if (this.regions != null) {
+      mediator.execute('region:register', this);
+    }
+    if (this.autoRender) {
+      this.render();
+    }
+  }
+
+  View.prototype.delegate = function(eventName, second, third) {
+    var bound, event, events, handler, list, selector;
+    if (Backbone.utils) {
+      return Backbone.utils.delegate(this, eventName, second, third);
+    }
+    if (typeof eventName !== 'string') {
+      throw new TypeError('View#delegate: first argument must be a string');
+    }
+    if (arguments.length === 2) {
+      handler = second;
+    } else if (arguments.length === 3) {
+      selector = second;
+      if (typeof selector !== 'string') {
+        throw new TypeError('View#delegate: ' + 'second argument must be a string');
+      }
+      handler = third;
+    } else {
+      throw new TypeError('View#delegate: ' + 'only two or three arguments are allowed');
+    }
+    if (typeof handler !== 'function') {
+      throw new TypeError('View#delegate: ' + 'handler argument must be function');
+    }
+    list = (function() {
+      var _i, _len, _ref, _results;
+      _ref = eventName.split(' ');
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        event = _ref[_i];
+        _results.push("" + event + ".delegate" + this.cid);
+      }
+      return _results;
+    }).call(this);
+    events = list.join(' ');
+    bound = bind(handler, this);
+    this.$el.on(events, selector || null, bound);
+    return bound;
+  };
+
+  View.prototype._delegateEvents = function(events) {
+    var bound, eventName, handler, key, match, selector, value;
+    if (Backbone.View.prototype.delegateEvents.length === 2) {
+      return Backbone.View.prototype.delegateEvents.call(this, events, true);
+    }
+    for (key in events) {
+      value = events[key];
+      handler = typeof value === 'function' ? value : this[value];
+      if (!handler) {
+        throw new Error("Method '" + value + "' does not exist");
+      }
+      match = key.match(/^(\S+)\s*(.*)$/);
+      eventName = "" + match[1] + ".delegateEvents" + this.cid;
+      selector = match[2];
+      bound = bind(handler, this);
+      this.$el.on(eventName, selector || null, bound);
+    }
+  };
+
+  View.prototype.delegateEvents = function(events, keepOld) {
+    var classEvents, _i, _len, _ref;
+    if (!keepOld) {
+      this.undelegateEvents();
+    }
+    if (events) {
+      return this._delegateEvents(events);
+    }
+    _ref = utils.getAllPropertyVersions(this, 'events');
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      classEvents = _ref[_i];
+      if (typeof classEvents === 'function') {
+        throw new TypeError('View#delegateEvents: functions are not supported');
+      }
+      this._delegateEvents(classEvents);
+    }
+  };
+
+  View.prototype.undelegate = function(eventName, second, third) {
+    var event, events, handler, list, selector;
+    if (Backbone.utils) {
+      return Backbone.utils.undelegate(this, eventName, second, third);
+    }
+    if (eventName) {
+      if (typeof eventName !== 'string') {
+        throw new TypeError('View#undelegate: first argument must be a string');
+      }
+      if (arguments.length === 2) {
+        if (typeof second === 'string') {
+          selector = second;
+        } else {
+          handler = second;
+        }
+      } else if (arguments.length === 3) {
+        selector = second;
+        if (typeof selector !== 'string') {
+          throw new TypeError('View#undelegate: ' + 'second argument must be a string');
+        }
+        handler = third;
+      }
+      list = (function() {
+        var _i, _len, _ref, _results;
+        _ref = eventName.split(' ');
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          event = _ref[_i];
+          _results.push("" + event + ".delegate" + this.cid);
+        }
+        return _results;
+      }).call(this);
+      events = list.join(' ');
+      return this.$el.off(events, selector || null);
+    } else {
+      return this.$el.off(".delegate" + this.cid);
+    }
+  };
+
+  View.prototype.delegateListeners = function() {
+    var eventName, key, method, target, version, _i, _len, _ref, _ref1;
+    if (!this.listen) {
+      return;
+    }
+    _ref = utils.getAllPropertyVersions(this, 'listen');
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      version = _ref[_i];
+      for (key in version) {
+        method = version[key];
+        if (typeof method !== 'function') {
+          method = this[method];
+        }
+        if (typeof method !== 'function') {
+          throw new Error('View#delegateListeners: ' + ("" + method + " must be function"));
+        }
+        _ref1 = key.split(' '), eventName = _ref1[0], target = _ref1[1];
+        this.delegateListener(eventName, target, method);
+      }
+    }
+  };
+
+  View.prototype.delegateListener = function(eventName, target, callback) {
+    var prop;
+    if (target === 'model' || target === 'collection') {
+      prop = this[target];
+      if (prop) {
+        this.listenTo(prop, eventName, callback);
+      }
+    } else if (target === 'mediator') {
+      this.subscribeEvent(eventName, callback);
+    } else if (!target) {
+      this.on(eventName, callback, this);
+    }
+  };
+
+  View.prototype.registerRegion = function(name, selector) {
+    return mediator.execute('region:register', this, name, selector);
+  };
+
+  View.prototype.unregisterRegion = function(name) {
+    return mediator.execute('region:unregister', this, name);
+  };
+
+  View.prototype.unregisterAllRegions = function() {
+    return mediator.execute({
+      name: 'region:unregister',
+      silent: true
+    }, this);
+  };
+
+  View.prototype.subview = function(name, view) {
+    var byName, subviews;
+    subviews = this.subviews;
+    byName = this.subviewsByName;
+    if (name && view) {
+      this.removeSubview(name);
+      subviews.push(view);
+      byName[name] = view;
+      return view;
+    } else if (name) {
+      return byName[name];
+    }
+  };
+
+  View.prototype.removeSubview = function(nameOrView) {
+    var byName, index, name, otherName, otherView, subviews, view;
+    if (!nameOrView) {
+      return;
+    }
+    subviews = this.subviews;
+    byName = this.subviewsByName;
+    if (typeof nameOrView === 'string') {
+      name = nameOrView;
+      view = byName[name];
+    } else {
+      view = nameOrView;
+      for (otherName in byName) {
+        otherView = byName[otherName];
+        if (!(otherView === view)) {
+          continue;
+        }
+        name = otherName;
+        break;
+      }
+    }
+    if (!(name && view && view.dispose)) {
+      return;
+    }
+    view.dispose();
+    index = utils.indexOf(subviews, view);
+    if (index !== -1) {
+      subviews.splice(index, 1);
+    }
+    return delete byName[name];
+  };
+
+  View.prototype.getTemplateData = function() {
+    var data, source;
+    data = this.model ? utils.serialize(this.model) : this.collection ? {
+      items: utils.serialize(this.collection),
+      length: this.collection.length
+    } : {};
+    source = this.model || this.collection;
+    if (source) {
+      if (typeof source.isSynced === 'function' && !('synced' in data)) {
+        data.synced = source.isSynced();
+      }
+    }
+    return data;
+  };
+
+  View.prototype.getTemplateFunction = function() {
+    throw new Error('View#getTemplateFunction must be overridden');
+  };
+
+  View.prototype.render = function() {
+    var el, html, templateFunc;
+    if (this.disposed) {
+      return false;
+    }
+    templateFunc = this.getTemplateFunction();
+    if (typeof templateFunc === 'function') {
+      html = templateFunc(this.getTemplateData());
+      if (this.noWrap) {
+        el = document.createElement('div');
+        el.innerHTML = html;
+        if (el.children.length > 1) {
+          throw new Error('There must be a single top-level element when ' + 'using `noWrap`.');
+        }
+        this.undelegateEvents();
+        this.setElement(el.firstChild, true);
+      } else {
+        setHTML(($ ? this.$el : this.el), html);
+      }
+    }
+    return this;
+  };
+
+  View.prototype.attach = function() {
+    if (this.region != null) {
+      mediator.execute('region:show', this.region, this);
+    }
+    if (this.container && !document.body.contains(this.el)) {
+      attach(this);
+      return this.trigger('addedToDOM');
+    }
+  };
+
+  View.prototype.disposed = false;
+
+  View.prototype.dispose = function() {
+    var prop, properties, subview, _i, _j, _len, _len1, _ref;
+    if (this.disposed) {
+      return;
+    }
+    this.unregisterAllRegions();
+    _ref = this.subviews;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      subview = _ref[_i];
+      subview.dispose();
+    }
+    this.unsubscribeAllEvents();
+    this.off();
+    if (this.keepElement) {
+      this.undelegateEvents();
+      this.undelegate();
+      this.stopListening();
+    } else {
+      this.remove();
+    }
+    properties = ['el', '$el', 'options', 'model', 'collection', 'subviews', 'subviewsByName', '_callbacks'];
+    for (_j = 0, _len1 = properties.length; _j < _len1; _j++) {
+      prop = properties[_j];
+      delete this[prop];
+    }
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return View;
+
+})(Backbone.View);
+
+});;loader.register('chaplin/views/collection_view', function(e, r, module) {
+'use strict';
+
+var $, Backbone, CollectionView, View, addClass, endAnimation, filterChildren, insertView, startAnimation, toggleElement, utils, _,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+View = loader('chaplin/views/view');
+
+utils = loader('chaplin/lib/utils');
+
+$ = Backbone.$;
+
+filterChildren = function(nodeList, selector) {
+  var node, _i, _len, _results;
+  if (!selector) {
+    return nodeList;
+  }
+  _results = [];
+  for (_i = 0, _len = nodeList.length; _i < _len; _i++) {
+    node = nodeList[_i];
+    if (Backbone.utils.matchesSelector(node, selector)) {
+      _results.push(node);
+    }
+  }
+  return _results;
+};
+
+toggleElement = (function() {
+  if ($) {
+    return function(elem, visible) {
+      return elem.toggle(visible);
+    };
+  } else {
+    return function(elem, visible) {
+      return elem.style.display = (visible ? '' : 'none');
+    };
+  }
+})();
+
+addClass = (function() {
+  if ($) {
+    return function(elem, cls) {
+      return elem.addClass(cls);
+    };
+  } else {
+    return function(elem, cls) {
+      return elem.classList.add(cls);
+    };
+  }
+})();
+
+startAnimation = (function() {
+  if ($) {
+    return function(elem, useCssAnimation, cls) {
+      if (useCssAnimation) {
+        return addClass(elem, cls);
+      } else {
+        return elem.css('opacity', 0);
+      }
+    };
+  } else {
+    return function(elem, useCssAnimation, cls) {
+      if (useCssAnimation) {
+        return addClass(elem, cls);
+      } else {
+        return elem.style.opacity = 0;
+      }
+    };
+  }
+})();
+
+endAnimation = (function() {
+  if ($) {
+    return function(elem, duration) {
+      return elem.animate({
+        opacity: 1
+      }, duration);
+    };
+  } else {
+    return function(elem, duration) {
+      elem.style.transition = "opacity " + (duration / 1000) + "s";
+      return elem.opacity = 1;
+    };
+  }
+})();
+
+insertView = (function() {
+  if ($) {
+    return function(list, viewEl, position, length, itemSelector) {
+      var children, childrenLength, insertInMiddle, isEnd, method;
+      insertInMiddle = (0 < position && position < length);
+      isEnd = function(length) {
+        return length === 0 || position === length;
+      };
+      if (insertInMiddle || itemSelector) {
+        children = list.children(itemSelector);
+        childrenLength = children.length;
+        if (children[position] !== viewEl) {
+          if (isEnd(childrenLength)) {
+            return list.append(viewEl);
+          } else {
+            if (position === 0) {
+              return children.eq(position).before(viewEl);
+            } else {
+              return children.eq(position - 1).after(viewEl);
+            }
+          }
+        }
+      } else {
+        method = isEnd(length) ? 'append' : 'prepend';
+        return list[method](viewEl);
+      }
+    };
+  } else {
+    return function(list, viewEl, position, length, itemSelector) {
+      var children, childrenLength, insertInMiddle, isEnd, last;
+      insertInMiddle = (0 < position && position < length);
+      isEnd = function(length) {
+        return length === 0 || position === length;
+      };
+      if (insertInMiddle || itemSelector) {
+        children = filterChildren(list.children, itemSelector);
+        childrenLength = children.length;
+        if (children[position] !== viewEl) {
+          if (isEnd(childrenLength)) {
+            return list.appendChild(viewEl);
+          } else if (position === 0) {
+            return list.insertBefore(viewEl, children[position]);
+          } else {
+            last = children[position - 1];
+            if (list.lastChild === last) {
+              return list.appendChild(viewEl);
+            } else {
+              return list.insertBefore(viewEl, last.nextElementSibling);
+            }
+          }
+        }
+      } else if (isEnd(length)) {
+        return list.appendChild(viewEl);
+      } else {
+        return list.insertBefore(viewEl, list.firstChild);
+      }
+    };
+  }
+})();
+
+module.exports = CollectionView = (function(_super) {
+
+  __extends(CollectionView, _super);
+
+  CollectionView.prototype.itemView = null;
+
+  CollectionView.prototype.autoRender = true;
+
+  CollectionView.prototype.renderItems = true;
+
+  CollectionView.prototype.animationDuration = 500;
+
+  CollectionView.prototype.useCssAnimation = false;
+
+  CollectionView.prototype.animationStartClass = 'animated-item-view';
+
+  CollectionView.prototype.animationEndClass = 'animated-item-view-end';
+
+  CollectionView.prototype.listSelector = null;
+
+  CollectionView.prototype.$list = null;
+
+  CollectionView.prototype.fallbackSelector = null;
+
+  CollectionView.prototype.$fallback = null;
+
+  CollectionView.prototype.loadingSelector = null;
+
+  CollectionView.prototype.$loading = null;
+
+  CollectionView.prototype.itemSelector = void 0;
+
+  CollectionView.prototype.filterer = null;
+
+  CollectionView.prototype.filterCallback = function(view, included) {
+    if ($) {
+      view.$el.stop(true, true);
+    }
+    return toggleElement(($ ? view.$el : view.el), included);
+  };
+
+  CollectionView.prototype.visibleItems = null;
+
+  CollectionView.prototype.optionNames = View.prototype.optionNames.concat(['renderItems', 'itemView']);
+
+  function CollectionView(options) {
+    this.renderAllItems = __bind(this.renderAllItems, this);
+
+    this.toggleFallback = __bind(this.toggleFallback, this);
+
+    this.itemsReset = __bind(this.itemsReset, this);
+
+    this.itemRemoved = __bind(this.itemRemoved, this);
+
+    this.itemAdded = __bind(this.itemAdded, this);
+    this.visibleItems = [];
+    CollectionView.__super__.constructor.apply(this, arguments);
+  }
+
+  CollectionView.prototype.initialize = function(options) {
+    if (options == null) {
+      options = {};
+    }
+    this.addCollectionListeners();
+    if (options.filterer != null) {
+      return this.filter(options.filterer);
+    }
+  };
+
+  CollectionView.prototype.addCollectionListeners = function() {
+    this.listenTo(this.collection, 'add', this.itemAdded);
+    this.listenTo(this.collection, 'remove', this.itemRemoved);
+    return this.listenTo(this.collection, 'reset sort', this.itemsReset);
+  };
+
+  CollectionView.prototype.getTemplateData = function() {
+    var templateData;
+    templateData = {
+      length: this.collection.length
+    };
+    if (typeof this.collection.isSynced === 'function') {
+      templateData.synced = this.collection.isSynced();
+    }
+    return templateData;
+  };
+
+  CollectionView.prototype.getTemplateFunction = function() {};
+
+  CollectionView.prototype.render = function() {
+    var listSelector;
+    CollectionView.__super__.render.apply(this, arguments);
+    listSelector = _.result(this, 'listSelector');
+    if ($) {
+      this.$list = listSelector ? this.$(listSelector) : this.$el;
+    } else {
+      this.list = listSelector ? this.find(this.listSelector) : this.el;
+    }
+    this.initFallback();
+    this.initLoadingIndicator();
+    if (this.renderItems) {
+      return this.renderAllItems();
+    }
+  };
+
+  CollectionView.prototype.itemAdded = function(item, collection, options) {
+    return this.insertView(item, this.renderItem(item), options.at);
+  };
+
+  CollectionView.prototype.itemRemoved = function(item) {
+    return this.removeViewForItem(item);
+  };
+
+  CollectionView.prototype.itemsReset = function() {
+    return this.renderAllItems();
+  };
+
+  CollectionView.prototype.initFallback = function() {
+    if (!this.fallbackSelector) {
+      return;
+    }
+    if ($) {
+      this.$fallback = this.$(this.fallbackSelector);
+    } else {
+      this.fallback = this.find(this.fallbackSelector);
+    }
+    this.on('visibilityChange', this.toggleFallback);
+    this.listenTo(this.collection, 'syncStateChange', this.toggleFallback);
+    return this.toggleFallback();
+  };
+
+  CollectionView.prototype.toggleFallback = function() {
+    var visible;
+    visible = this.visibleItems.length === 0 && (typeof this.collection.isSynced === 'function' ? this.collection.isSynced() : true);
+    return toggleElement(($ ? this.$fallback : this.fallback), visible);
+  };
+
+  CollectionView.prototype.initLoadingIndicator = function() {
+    if (!(this.loadingSelector && typeof this.collection.isSyncing === 'function')) {
+      return;
+    }
+    if ($) {
+      this.$loading = this.$(this.loadingSelector);
+    } else {
+      this.loading = this.find(this.loadingSelector);
+    }
+    this.listenTo(this.collection, 'syncStateChange', this.toggleLoadingIndicator);
+    return this.toggleLoadingIndicator();
+  };
+
+  CollectionView.prototype.toggleLoadingIndicator = function() {
+    var visible;
+    visible = this.collection.length === 0 && this.collection.isSyncing();
+    return toggleElement(($ ? this.$loading : this.loading), visible);
+  };
+
+  CollectionView.prototype.getItemViews = function() {
+    var itemViews, name, view, _ref;
+    itemViews = {};
+    if (this.subviews.length > 0) {
+      _ref = this.subviewsByName;
+      for (name in _ref) {
+        view = _ref[name];
+        if (name.slice(0, 9) === 'itemView:') {
+          itemViews[name.slice(9)] = view;
+        }
+      }
+    }
+    return itemViews;
+  };
+
+  CollectionView.prototype.filter = function(filterer, filterCallback) {
+    var hasItemViews, included, index, item, view, _i, _len, _ref,
+      _this = this;
+    if (typeof filterer === 'function' || filterer === null) {
+      this.filterer = filterer;
+    }
+    if (typeof filterCallback === 'function' || filterCallback === null) {
+      this.filterCallback = filterCallback;
+    }
+    hasItemViews = (function() {
+      var name;
+      if (_this.subviews.length > 0) {
+        for (name in _this.subviewsByName) {
+          if (name.slice(0, 9) === 'itemView:') {
+            return true;
+          }
+        }
+      }
+      return false;
+    })();
+    if (hasItemViews) {
+      _ref = this.collection.models;
+      for (index = _i = 0, _len = _ref.length; _i < _len; index = ++_i) {
+        item = _ref[index];
+        included = typeof this.filterer === 'function' ? this.filterer(item, index) : true;
+        view = this.subview("itemView:" + item.cid);
+        if (!view) {
+          throw new Error('CollectionView#filter: ' + ("no view found for " + item.cid));
+        }
+        this.filterCallback(view, included);
+        this.updateVisibleItems(view.model, included, false);
+      }
+    }
+    return this.trigger('visibilityChange', this.visibleItems);
+  };
+
+  CollectionView.prototype.renderAllItems = function() {
+    var cid, index, item, items, remainingViewsByCid, view, _i, _j, _len, _len1, _ref;
+    items = this.collection.models;
+    this.visibleItems = [];
+    remainingViewsByCid = {};
+    for (_i = 0, _len = items.length; _i < _len; _i++) {
+      item = items[_i];
+      view = this.subview("itemView:" + item.cid);
+      if (view) {
+        remainingViewsByCid[item.cid] = view;
+      }
+    }
+    _ref = this.getItemViews();
+    for (cid in _ref) {
+      if (!__hasProp.call(_ref, cid)) continue;
+      view = _ref[cid];
+      if (!(cid in remainingViewsByCid)) {
+        this.removeSubview("itemView:" + cid);
+      }
+    }
+    for (index = _j = 0, _len1 = items.length; _j < _len1; index = ++_j) {
+      item = items[index];
+      view = this.subview("itemView:" + item.cid);
+      if (view) {
+        this.insertView(item, view, index, false);
+      } else {
+        this.insertView(item, this.renderItem(item), index);
+      }
+    }
+    if (items.length === 0) {
+      return this.trigger('visibilityChange', this.visibleItems);
+    }
+  };
+
+  CollectionView.prototype.renderItem = function(item) {
+    var view;
+    view = this.subview("itemView:" + item.cid);
+    if (!view) {
+      view = this.initItemView(item);
+      this.subview("itemView:" + item.cid, view);
+    }
+    view.render();
+    return view;
+  };
+
+  CollectionView.prototype.initItemView = function(model) {
+    if (this.itemView) {
+      return new this.itemView({
+        autoRender: false,
+        model: model
+      });
+    } else {
+      throw new Error('The CollectionView#itemView property ' + 'must be defined or the initItemView() must be overridden.');
+    }
+  };
+
+  CollectionView.prototype.insertView = function(item, view, position, enableAnimation) {
+    var elem, included, length, list,
+      _this = this;
+    if (enableAnimation == null) {
+      enableAnimation = true;
+    }
+    if (this.animationDuration === 0) {
+      enableAnimation = false;
+    }
+    if (typeof position !== 'number') {
+      position = this.collection.indexOf(item);
+    }
+    included = typeof this.filterer === 'function' ? this.filterer(item, position) : true;
+    elem = $ ? view.$el : view.el;
+    if (included && enableAnimation) {
+      startAnimation(elem, this.useCssAnimation, this.animationStartClass);
+    }
+    if (this.filterer) {
+      this.filterCallback(view, included);
+    }
+    length = this.collection.length;
+    list = $ ? this.$list : this.list;
+    insertView(list, elem, position, length, this.itemSelector);
+    view.trigger('addedToParent');
+    this.updateVisibleItems(item, included);
+    if (included && enableAnimation) {
+      if (this.useCssAnimation) {
+        setTimeout((function() {
+          return addClass(elem, _this.animationEndClass);
+        }), 0);
+      } else {
+        endAnimation(elem, this.animationDuration);
+      }
+    }
+    return view;
+  };
+
+  CollectionView.prototype.removeViewForItem = function(item) {
+    this.updateVisibleItems(item, false);
+    return this.removeSubview("itemView:" + item.cid);
+  };
+
+  CollectionView.prototype.updateVisibleItems = function(item, includedInFilter, triggerEvent) {
+    var includedInVisibleItems, visibilityChanged, visibleItemsIndex;
+    if (triggerEvent == null) {
+      triggerEvent = true;
+    }
+    visibilityChanged = false;
+    visibleItemsIndex = utils.indexOf(this.visibleItems, item);
+    includedInVisibleItems = visibleItemsIndex !== -1;
+    if (includedInFilter && !includedInVisibleItems) {
+      this.visibleItems.push(item);
+      visibilityChanged = true;
+    } else if (!includedInFilter && includedInVisibleItems) {
+      this.visibleItems.splice(visibleItemsIndex, 1);
+      visibilityChanged = true;
+    }
+    if (visibilityChanged && triggerEvent) {
+      this.trigger('visibilityChange', this.visibleItems);
+    }
+    return visibilityChanged;
+  };
+
+  CollectionView.prototype.dispose = function() {
+    var prop, properties, _i, _len;
+    if (this.disposed) {
+      return;
+    }
+    properties = ['$list', '$fallback', '$loading', 'visibleItems'];
+    for (_i = 0, _len = properties.length; _i < _len; _i++) {
+      prop = properties[_i];
+      delete this[prop];
+    }
+    return CollectionView.__super__.dispose.apply(this, arguments);
+  };
+
+  return CollectionView;
+
+})(View);
+
+});;loader.register('chaplin/lib/route', function(e, r, module) {
+'use strict';
+
+var Backbone, Controller, EventBroker, Route, utils, _,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+  __hasProp = {}.hasOwnProperty;
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+Controller = loader('chaplin/controllers/controller');
+
+utils = loader('chaplin/lib/utils');
+
+module.exports = Route = (function() {
+  var escapeRegExp, optionalRegExp, paramRegExp, processTrailingSlash;
+
+  Route.extend = Backbone.Model.extend;
+
+  _.extend(Route.prototype, EventBroker);
+
+  escapeRegExp = /[\-{}\[\]+?.,\\\^$|#\s]/g;
+
+  optionalRegExp = /\((.*?)\)/g;
+
+  paramRegExp = /(?::|\*)(\w+)/g;
+
+  processTrailingSlash = function(path, trailing) {
+    switch (trailing) {
+      case true:
+        if (path.slice(-1) !== '/') {
+          path += '/';
+        }
+        break;
+      case false:
+        if (path.slice(-1) === '/') {
+          path = path.slice(0, -1);
+        }
+    }
+    return path;
+  };
+
+  function Route(pattern, controller, action, options) {
+    var _ref;
+    this.pattern = pattern;
+    this.controller = controller;
+    this.action = action;
+    this.handler = __bind(this.handler, this);
+
+    this.replaceParams = __bind(this.replaceParams, this);
+
+    this.parseOptionalPortion = __bind(this.parseOptionalPortion, this);
+
+    if (typeof this.pattern !== 'string') {
+      throw new Error('Route: RegExps are not supported.\
+        Use strings with :names and `constraints` option of route');
+    }
+    this.options = options ? _.extend({}, options) : {};
+    if (this.options.name != null) {
+      this.name = this.options.name;
+    }
+    if (this.name && this.name.indexOf('#') !== -1) {
+      throw new Error('Route: "#" cannot be used in name');
+    }
+    if ((_ref = this.name) == null) {
+      this.name = this.controller + '#' + this.action;
+    }
+    this.allParams = [];
+    this.requiredParams = [];
+    this.optionalParams = [];
+    if (this.action in Controller.prototype) {
+      throw new Error('Route: You should not use existing controller ' + 'properties as action names');
+    }
+    this.createRegExp();
+    if (typeof Object.freeze === "function") {
+      Object.freeze(this);
+    }
+  }
+
+  Route.prototype.matches = function(criteria) {
+    var invalidParamsCount, name, propertiesCount, property, _i, _len, _ref;
+    if (typeof criteria === 'string') {
+      return criteria === this.name;
+    } else {
+      propertiesCount = 0;
+      _ref = ['name', 'action', 'controller'];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        name = _ref[_i];
+        propertiesCount++;
+        property = criteria[name];
+        if (property && property !== this[name]) {
+          return false;
+        }
+      }
+      invalidParamsCount = propertiesCount === 1 && (name === 'action' || name === 'controller');
+      return !invalidParamsCount;
+    }
+  };
+
+  Route.prototype.reverse = function(params, query) {
+    var name, queryString, raw, url, value, _i, _j, _len, _len1, _ref, _ref1;
+    params = this.normalizeParams(params);
+    if (params === false) {
+      return false;
+    }
+    url = this.pattern;
+    _ref = this.requiredParams;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      name = _ref[_i];
+      value = params[name];
+      url = url.replace(RegExp("[:*]" + name, "g"), value);
+    }
+    _ref1 = this.optionalParams;
+    for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+      name = _ref1[_j];
+      if (value = params[name]) {
+        url = url.replace(RegExp("[:*]" + name, "g"), value);
+      }
+    }
+    raw = url.replace(optionalRegExp, function(match, portion) {
+      if (portion.match(/[:*]/g)) {
+        return "";
+      } else {
+        return portion;
+      }
+    });
+    url = processTrailingSlash(raw, this.options.trailing);
+    if (!query) {
+      return url;
+    }
+    if (typeof query === 'object') {
+      queryString = utils.queryParams.stringify(query);
+      return url += queryString ? '?' + queryString : '';
+    } else {
+      return url += (query[0] === '?' ? '' : '?') + query;
+    }
+  };
+
+  Route.prototype.normalizeParams = function(params) {
+    var paramIndex, paramName, paramsHash, _i, _len, _ref;
+    if (utils.isArray(params)) {
+      if (params.length < this.requiredParams.length) {
+        return false;
+      }
+      paramsHash = {};
+      _ref = this.requiredParams;
+      for (paramIndex = _i = 0, _len = _ref.length; _i < _len; paramIndex = ++_i) {
+        paramName = _ref[paramIndex];
+        paramsHash[paramName] = params[paramIndex];
+      }
+      if (!this.testConstraints(paramsHash)) {
+        return false;
+      }
+      params = paramsHash;
+    } else {
+      if (params == null) {
+        params = {};
+      }
+      if (!this.testParams(params)) {
+        return false;
+      }
+    }
+    return params;
+  };
+
+  Route.prototype.testConstraints = function(params) {
+    var constraint, constraints, name;
+    constraints = this.options.constraints;
+    if (constraints) {
+      for (name in constraints) {
+        if (!__hasProp.call(constraints, name)) continue;
+        constraint = constraints[name];
+        if (!constraint.test(params[name])) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  Route.prototype.testParams = function(params) {
+    var paramName, _i, _len, _ref;
+    _ref = this.requiredParams;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      paramName = _ref[_i];
+      if (params[paramName] === void 0) {
+        return false;
+      }
+    }
+    return this.testConstraints(params);
+  };
+
+  Route.prototype.createRegExp = function() {
+    var pattern,
+      _this = this;
+    pattern = this.pattern;
+    pattern = pattern.replace(escapeRegExp, '\\$&');
+    this.replaceParams(pattern, function(match, param) {
+      return _this.allParams.push(param);
+    });
+    pattern = pattern.replace(optionalRegExp, this.parseOptionalPortion);
+    pattern = this.replaceParams(pattern, function(match, param) {
+      _this.requiredParams.push(param);
+      return _this.paramCapturePattern(match);
+    });
+    return this.regExp = RegExp("^" + pattern + "(?=\\/?(?=\\?|$))");
+  };
+
+  Route.prototype.parseOptionalPortion = function(match, optionalPortion) {
+    var portion,
+      _this = this;
+    portion = this.replaceParams(optionalPortion, function(match, param) {
+      _this.optionalParams.push(param);
+      return _this.paramCapturePattern(match);
+    });
+    return "(?:" + portion + ")?";
+  };
+
+  Route.prototype.replaceParams = function(s, callback) {
+    return s.replace(paramRegExp, callback);
+  };
+
+  Route.prototype.paramCapturePattern = function(param) {
+    if (param.charAt(0) === ':') {
+      return '([^\/\?]+)';
+    } else {
+      return '(.*?)';
+    }
+  };
+
+  Route.prototype.test = function(path) {
+    var constraints, matched;
+    matched = this.regExp.test(path);
+    if (!matched) {
+      return false;
+    }
+    constraints = this.options.constraints;
+    if (constraints) {
+      return this.testConstraints(this.extractParams(path));
+    }
+    return true;
+  };
+
+  Route.prototype.handler = function(pathParams, options) {
+    var actionParams, params, path, query, route, _ref;
+    options = options ? _.extend({}, options) : {};
+    if (typeof pathParams === 'object') {
+      query = utils.queryParams.stringify(options.query);
+      params = pathParams;
+      path = this.reverse(params);
+    } else {
+      _ref = pathParams.split('?'), path = _ref[0], query = _ref[1];
+      if (!(query != null)) {
+        query = '';
+      } else {
+        options.query = utils.queryParams.parse(query);
+      }
+      params = this.extractParams(path);
+      path = processTrailingSlash(path, this.options.trailing);
+    }
+    actionParams = _.extend({}, params, this.options.params);
+    route = {
+      path: path,
+      action: this.action,
+      controller: this.controller,
+      name: this.name,
+      query: query
+    };
+    return this.publishEvent('router:match', route, actionParams, options);
+  };
+
+  Route.prototype.extractParams = function(path) {
+    var index, match, matches, paramName, params, _i, _len, _ref;
+    params = {};
+    matches = this.regExp.exec(path);
+    _ref = matches.slice(1);
+    for (index = _i = 0, _len = _ref.length; _i < _len; index = ++_i) {
+      match = _ref[index];
+      paramName = this.allParams.length ? this.allParams[index] : index;
+      params[paramName] = match;
+    }
+    return params;
+  };
+
+  return Route;
+
+})();
+
+});;loader.register('chaplin/lib/router', function(e, r, module) {
+'use strict';
+
+var Backbone, EventBroker, History, Route, Router, mediator, utils, _,
+  __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+mediator = loader('chaplin/mediator');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+History = loader('chaplin/lib/history');
+
+Route = loader('chaplin/lib/route');
+
+utils = loader('chaplin/lib/utils');
+
+module.exports = Router = (function() {
+
+  Router.extend = Backbone.Model.extend;
+
+  _.extend(Router.prototype, EventBroker);
+
+  function Router(options) {
+    var isWebFile;
+    this.options = options != null ? options : {};
+    this.match = __bind(this.match, this);
+
+    isWebFile = window.location.protocol !== 'file:';
+    _.defaults(this.options, {
+      pushState: isWebFile,
+      root: '/',
+      trailing: false
+    });
+    this.removeRoot = new RegExp('^' + utils.escapeRegExp(this.options.root) + '(#)?');
+    this.subscribeEvent('!router:route', this.oldEventError);
+    this.subscribeEvent('!router:routeByName', this.oldEventError);
+    this.subscribeEvent('!router:changeURL', this.oldURLEventError);
+    this.subscribeEvent('dispatcher:dispatch', this.changeURL);
+    mediator.setHandler('router:route', this.route, this);
+    mediator.setHandler('router:reverse', this.reverse, this);
+    this.createHistory();
+  }
+
+  Router.prototype.oldEventError = function() {
+    throw new Error('!router:route and !router:routeByName events were removed.\
+  Use `Chaplin.utils.redirectTo`');
+  };
+
+  Router.prototype.oldURLEventError = function() {
+    throw new Error('!router:changeURL event was removed.');
+  };
+
+  Router.prototype.createHistory = function() {
+    return Backbone.history = new History();
+  };
+
+  Router.prototype.startHistory = function() {
+    return Backbone.history.start(this.options);
+  };
+
+  Router.prototype.stopHistory = function() {
+    if (Backbone.History.started) {
+      return Backbone.history.stop();
+    }
+  };
+
+  Router.prototype.findHandler = function(predicate) {
+    var handler, _i, _len, _ref;
+    _ref = Backbone.history.handlers;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      handler = _ref[_i];
+      if (predicate(handler)) {
+        return handler;
+      }
+    }
+  };
+
+  Router.prototype.match = function(pattern, target, options) {
+    var action, controller, route, _ref;
+    if (options == null) {
+      options = {};
+    }
+    if (arguments.length === 2 && typeof target === 'object') {
+      options = target;
+      controller = options.controller, action = options.action;
+      if (!(controller && action)) {
+        throw new Error('Router#match must receive either target or ' + 'options.controller & options.action');
+      }
+    } else {
+      controller = options.controller, action = options.action;
+      if (controller || action) {
+        throw new Error('Router#match cannot use both target and ' + 'options.controller / options.action');
+      }
+      _ref = target.split('#'), controller = _ref[0], action = _ref[1];
+    }
+    _.defaults(options, {
+      trailing: this.options.trailing
+    });
+    route = new Route(pattern, controller, action, options);
+    Backbone.history.handlers.push({
+      route: route,
+      callback: route.handler
+    });
+    return route;
+  };
+
+  Router.prototype.route = function(pathDesc, params, options) {
+    var handler, path;
+    if (typeof pathDesc === 'object') {
+      path = pathDesc.url;
+      if (!params && pathDesc.params) {
+        params = pathDesc.params;
+      }
+    }
+    params = params ? utils.isArray(params) ? params.slice() : _.extend({}, params) : {};
+    if (path != null) {
+      path = path.replace(this.removeRoot, '');
+      handler = this.findHandler(function(handler) {
+        return handler.route.test(path);
+      });
+      options = params;
+      params = null;
+    } else {
+      options = options ? _.extend({}, options) : {};
+      handler = this.findHandler(function(handler) {
+        if (handler.route.matches(pathDesc)) {
+          params = handler.route.normalizeParams(params);
+          if (params) {
+            return true;
+          }
+        }
+        return false;
+      });
+    }
+    if (handler) {
+      _.defaults(options, {
+        changeURL: true
+      });
+      handler.callback(path || params, options);
+      return true;
+    } else {
+      throw new Error('Router#route: request was not routed');
+    }
+  };
+
+  Router.prototype.reverse = function(criteria, params, query) {
+    var handler, handlers, reversed, root, url, _i, _len;
+    root = this.options.root;
+    if ((params != null) && typeof params !== 'object') {
+      throw new TypeError('Router#reverse: params must be an array or an ' + 'object');
+    }
+    handlers = Backbone.history.handlers;
+    for (_i = 0, _len = handlers.length; _i < _len; _i++) {
+      handler = handlers[_i];
+      if (!(handler.route.matches(criteria))) {
+        continue;
+      }
+      reversed = handler.route.reverse(params, query);
+      if (reversed !== false) {
+        url = root ? root + reversed : reversed;
+        return url;
+      }
+    }
+    throw new Error('Router#reverse: invalid route specified');
+  };
+
+  Router.prototype.changeURL = function(controller, params, route, options) {
+    var navigateOptions, url;
+    if (!((route.path != null) && options.changeURL)) {
+      return;
+    }
+    url = route.path + (route.query ? "?" + route.query : "");
+    navigateOptions = {
+      trigger: options.trigger === true,
+      replace: options.replace === true
+    };
+    return Backbone.history.navigate(url, navigateOptions);
+  };
+
+  Router.prototype.disposed = false;
+
+  Router.prototype.dispose = function() {
+    if (this.disposed) {
+      return;
+    }
+    this.stopHistory();
+    delete Backbone.history;
+    this.unsubscribeAllEvents();
+    mediator.removeHandlers(this);
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Router;
+
+})();
+
+});;loader.register('chaplin/lib/history', function(e, r, module) {
+'use strict';
+
+var Backbone, History, isExplorer, rootStripper, routeStripper, trailingSlash, _,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+routeStripper = /^[#\/]|\s+$/g;
+
+rootStripper = /^\/+|\/+$/g;
+
+isExplorer = /msie [\w.]+/;
+
+trailingSlash = /\/$/;
+
+History = (function(_super) {
+
+  __extends(History, _super);
+
+  function History() {
+    return History.__super__.constructor.apply(this, arguments);
+  }
+
+  History.prototype.getFragment = function(fragment, forcePushState) {
+    var root;
+    if (!(fragment != null)) {
+      if (this._hasPushState || !this._wantsHashChange || forcePushState) {
+        fragment = this.location.pathname + this.location.search;
+        root = this.root.replace(trailingSlash, '');
+        if (!fragment.indexOf(root)) {
+          fragment = fragment.substr(root.length);
+        }
+      } else {
+        fragment = this.getHash();
+      }
+    }
+    return fragment.replace(routeStripper, '');
+  };
+
+  History.prototype.start = function(options) {
+    var atRoot, fragment, loc;
+    if (Backbone.History.started) {
+      throw new Error('Backbone.history has already been started');
+    }
+    Backbone.History.started = true;
+    this.options = _.extend({}, {
+      root: '/'
+    }, this.options, options);
+    this.root = this.options.root;
+    this._wantsHashChange = this.options.hashChange !== false;
+    this._wantsPushState = Boolean(this.options.pushState);
+    this._hasPushState = Boolean(this.options.pushState && this.history && this.history.pushState);
+    fragment = this.getFragment();
+    this.root = ('/' + this.root + '/').replace(rootStripper, '/');
+    if (this._hasPushState) {
+      Backbone.$(window).on('popstate', this.checkUrl);
+    } else if (this._wantsHashChange && 'onhashchange' in window) {
+      Backbone.$(window).on('hashchange', this.checkUrl);
+    } else if (this._wantsHashChange) {
+      this._checkUrlInterval = setInterval(this.checkUrl, this.interval);
+    }
+    this.fragment = fragment;
+    loc = this.location;
+    atRoot = loc.pathname.replace(/[^\/]$/, '$&/') === this.root;
+    if (this._wantsHashChange && this._wantsPushState && !this._hasPushState && !atRoot) {
+      this.fragment = this.getFragment(null, true);
+      this.location.replace(this.root + '#' + this.fragment);
+      return true;
+    } else if (this._wantsPushState && this._hasPushState && atRoot && loc.hash) {
+      this.fragment = this.getHash().replace(routeStripper, '');
+      this.history.replaceState({}, document.title, this.root + this.fragment);
+    }
+    if (!this.options.silent) {
+      return this.loadUrl();
+    }
+  };
+
+  History.prototype.navigate = function(fragment, options) {
+    var historyMethod, isSameFragment, url;
+    if (fragment == null) {
+      fragment = '';
+    }
+    if (!Backbone.History.started) {
+      return false;
+    }
+    if (!options || options === true) {
+      options = {
+        trigger: options
+      };
+    }
+    fragment = this.getFragment(fragment);
+    url = this.root + fragment;
+    if (this.fragment === fragment) {
+      return false;
+    }
+    this.fragment = fragment;
+    if (fragment.length === 0 && url !== '/') {
+      url = url.slice(0, -1);
+    }
+    if (this._hasPushState) {
+      historyMethod = options.replace ? 'replaceState' : 'pushState';
+      this.history[historyMethod]({}, document.title, url);
+    } else if (this._wantsHashChange) {
+      this._updateHash(this.location, fragment, options.replace);
+      isSameFragment = fragment !== this.getFragment(this.getHash(this.iframe));
+      if ((this.iframe != null) && isSameFragment) {
+        if (!options.replace) {
+          this.iframe.document.open().close();
+        }
+        this._updateHash(this.iframe.location, fragment, options.replace);
+      }
+    } else {
+      return this.location.assign(url);
+    }
+    if (options.trigger) {
+      return this.loadUrl(fragment);
+    }
+  };
+
+  return History;
+
+})(Backbone.History);
+
+module.exports = Backbone.$ ? History : Backbone.History;
+
+});;loader.register('chaplin/lib/event_broker', function(e, r, module) {
+'use strict';
+
+var EventBroker, mediator,
+  __slice = [].slice;
+
+mediator = loader('chaplin/mediator');
+
+EventBroker = {
+  subscribeEvent: function(type, handler) {
+    if (typeof type !== 'string') {
+      throw new TypeError('EventBroker#subscribeEvent: ' + 'type argument must be a string');
+    }
+    if (typeof handler !== 'function') {
+      throw new TypeError('EventBroker#subscribeEvent: ' + 'handler argument must be a function');
+    }
+    mediator.unsubscribe(type, handler, this);
+    return mediator.subscribe(type, handler, this);
+  },
+  unsubscribeEvent: function(type, handler) {
+    if (typeof type !== 'string') {
+      throw new TypeError('EventBroker#unsubscribeEvent: ' + 'type argument must be a string');
+    }
+    if (typeof handler !== 'function') {
+      throw new TypeError('EventBroker#unsubscribeEvent: ' + 'handler argument must be a function');
+    }
+    return mediator.unsubscribe(type, handler);
+  },
+  unsubscribeAllEvents: function() {
+    return mediator.unsubscribe(null, null, this);
+  },
+  publishEvent: function() {
+    var args, type;
+    type = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+    if (typeof type !== 'string') {
+      throw new TypeError('EventBroker#publishEvent: ' + 'type argument must be a string');
+    }
+    return mediator.publish.apply(mediator, [type].concat(__slice.call(args)));
+  }
+};
+
+if (typeof Object.freeze === "function") {
+  Object.freeze(EventBroker);
+}
+
+module.exports = EventBroker;
+
+});;loader.register('chaplin/lib/support', function(e, r, module) {
+'use strict';
+
+var support;
+
+support = {
+  propertyDescriptors: (function() {
+    var o;
+    if (!(typeof Object.defineProperty === 'function' && typeof Object.defineProperties === 'function')) {
+      return false;
+    }
+    try {
+      o = {};
+      Object.defineProperty(o, 'foo', {
+        value: 'bar'
+      });
+      return o.foo === 'bar';
+    } catch (error) {
+      return false;
+    }
+  })()
+};
+
+module.exports = support;
+
+});;loader.register('chaplin/lib/composition', function(e, r, module) {
+'use strict';
+
+var Backbone, Composition, EventBroker, has, _,
+  __hasProp = {}.hasOwnProperty;
+
+_ = loader('underscore');
+
+Backbone = loader('backbone');
+
+EventBroker = loader('chaplin/lib/event_broker');
+
+has = Object.prototype.hasOwnProperty;
+
+module.exports = Composition = (function() {
+
+  Composition.extend = Backbone.Model.extend;
+
+  _.extend(Composition.prototype, Backbone.Events);
+
+  _.extend(Composition.prototype, EventBroker);
+
+  Composition.prototype.item = null;
+
+  Composition.prototype.options = null;
+
+  Composition.prototype._stale = false;
+
+  function Composition(options) {
+    if (options != null) {
+      this.options = _.extend({}, options);
+    }
+    this.item = this;
+    this.initialize(this.options);
+  }
+
+  Composition.prototype.initialize = function() {};
+
+  Composition.prototype.compose = function() {};
+
+  Composition.prototype.check = function(options) {
+    return _.isEqual(this.options, options);
+  };
+
+  Composition.prototype.stale = function(value) {
+    var item, name;
+    if (value == null) {
+      return this._stale;
+    }
+    this._stale = value;
+    for (name in this) {
+      item = this[name];
+      if (item && item !== this && typeof item === 'object' && has.call(item, 'stale')) {
+        item.stale = value;
+      }
+    }
+  };
+
+  Composition.prototype.disposed = false;
+
+  Composition.prototype.dispose = function() {
+    var obj, prop, properties, _i, _len;
+    if (this.disposed) {
+      return;
+    }
+    for (prop in this) {
+      if (!__hasProp.call(this, prop)) continue;
+      obj = this[prop];
+      if (obj && typeof obj.dispose === 'function') {
+        if (obj !== this) {
+          obj.dispose();
+          delete this[prop];
+        }
+      }
+    }
+    this.unsubscribeAllEvents();
+    this.stopListening();
+    properties = ['redirected'];
+    for (_i = 0, _len = properties.length; _i < _len; _i++) {
+      prop = properties[_i];
+      delete this[prop];
+    }
+    this.disposed = true;
+    return typeof Object.freeze === "function" ? Object.freeze(this) : void 0;
+  };
+
+  return Composition;
+
+})();
+
+});;loader.register('chaplin/lib/sync_machine', function(e, r, module) {
+'use strict';
+
+var STATE_CHANGE, SYNCED, SYNCING, SyncMachine, UNSYNCED, event, _fn, _i, _len, _ref;
+
+UNSYNCED = 'unsynced';
+
+SYNCING = 'syncing';
+
+SYNCED = 'synced';
+
+STATE_CHANGE = 'syncStateChange';
+
+SyncMachine = {
+  _syncState: UNSYNCED,
+  _previousSyncState: null,
+  syncState: function() {
+    return this._syncState;
+  },
+  isUnsynced: function() {
+    return this._syncState === UNSYNCED;
+  },
+  isSynced: function() {
+    return this._syncState === SYNCED;
+  },
+  isSyncing: function() {
+    return this._syncState === SYNCING;
+  },
+  unsync: function() {
+    var _ref;
+    if ((_ref = this._syncState) === SYNCING || _ref === SYNCED) {
+      this._previousSync = this._syncState;
+      this._syncState = UNSYNCED;
+      this.trigger(this._syncState, this, this._syncState);
+      this.trigger(STATE_CHANGE, this, this._syncState);
+    }
+  },
+  beginSync: function() {
+    var _ref;
+    if ((_ref = this._syncState) === UNSYNCED || _ref === SYNCED) {
+      this._previousSync = this._syncState;
+      this._syncState = SYNCING;
+      this.trigger(this._syncState, this, this._syncState);
+      this.trigger(STATE_CHANGE, this, this._syncState);
+    }
+  },
+  finishSync: function() {
+    if (this._syncState === SYNCING) {
+      this._previousSync = this._syncState;
+      this._syncState = SYNCED;
+      this.trigger(this._syncState, this, this._syncState);
+      this.trigger(STATE_CHANGE, this, this._syncState);
+    }
+  },
+  abortSync: function() {
+    if (this._syncState === SYNCING) {
+      this._syncState = this._previousSync;
+      this._previousSync = this._syncState;
+      this.trigger(this._syncState, this, this._syncState);
+      this.trigger(STATE_CHANGE, this, this._syncState);
+    }
+  }
+};
+
+_ref = [UNSYNCED, SYNCING, SYNCED, STATE_CHANGE];
+_fn = function(event) {
+  return SyncMachine[event] = function(callback, context) {
+    if (context == null) {
+      context = this;
+    }
+    this.on(event, callback, context);
+    if (this._syncState === event) {
+      return callback.call(context);
+    }
+  };
+};
+for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+  event = _ref[_i];
+  _fn(event);
+}
+
+if (typeof Object.freeze === "function") {
+  Object.freeze(SyncMachine);
+}
+
+module.exports = SyncMachine;
+
+});;loader.register('chaplin/lib/utils', function(e, r, module) {
+'use strict';
+
+var support, utils, _,
+  __slice = [].slice,
+  __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
+  __hasProp = {}.hasOwnProperty;
+
+_ = loader('underscore');
+
+support = loader('chaplin/lib/support');
+
+utils = {
+  beget: (function() {
+    var ctor;
+    if (typeof Object.create === 'function') {
+      return Object.create;
+    } else {
+      ctor = function() {};
+      return function(obj) {
+        ctor.prototype = obj;
+        return new ctor;
+      };
+    }
+  })(),
+  indexOf: (function() {
+    if (Array.prototype.indexOf) {
+      return function(list, index) {
+        return list.indexOf(index);
+      };
+    } else if (_.indexOf) {
+      return _.indexOf;
+    }
+  })(),
+  isArray: Array.isArray || _.isArray,
+  serialize: function(data) {
+    if (typeof data.serialize === 'function') {
+      return data.serialize();
+    } else if (typeof data.toJSON === 'function') {
+      return data.toJSON();
+    } else {
+      throw new TypeError('utils.serialize: Unknown data was passed');
+    }
+  },
+  readonly: (function() {
+    var readonlyDescriptor;
+    if (support.propertyDescriptors) {
+      readonlyDescriptor = {
+        writable: false,
+        enumerable: true,
+        configurable: false
+      };
+      return function() {
+        var obj, prop, properties, _i, _len;
+        obj = arguments[0], properties = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+        for (_i = 0, _len = properties.length; _i < _len; _i++) {
+          prop = properties[_i];
+          readonlyDescriptor.value = obj[prop];
+          Object.defineProperty(obj, prop, readonlyDescriptor);
+        }
+        return true;
+      };
+    } else {
+      return function() {
+        return false;
+      };
+    }
+  })(),
+  getPrototypeChain: function(object) {
+    var chain, _ref, _ref1, _ref2;
+    chain = [object.constructor.prototype];
+    while (object = (_ref = (_ref1 = object.constructor) != null ? _ref1.__super__ : void 0) != null ? _ref : (_ref2 = object.constructor) != null ? _ref2.superclass : void 0) {
+      chain.push(object);
+    }
+    return chain.reverse();
+  },
+  getAllPropertyVersions: function(object, property) {
+    var proto, result, value, _i, _len, _ref;
+    result = [];
+    _ref = utils.getPrototypeChain(object);
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      proto = _ref[_i];
+      value = proto[property];
+      if (value && __indexOf.call(result, value) < 0) {
+        result.push(value);
+      }
+    }
+    return result;
+  },
+  upcase: function(str) {
+    return str.charAt(0).toUpperCase() + str.substring(1);
+  },
+  escapeRegExp: function(str) {
+    return String(str || '').replace(/([.*+?^=!:${}()|[\]\/\\])/g, '\\$1');
+  },
+  modifierKeyPressed: function(event) {
+    return event.shiftKey || event.altKey || event.ctrlKey || event.metaKey;
+  },
+  reverse: function(criteria, params, query) {
+    return loader('chaplin/mediator').execute('router:reverse', criteria, params, query);
+  },
+  redirectTo: function(pathDesc, params, options) {
+    return loader('chaplin/mediator').execute('router:route', pathDesc, params, options);
+  },
+  queryParams: {
+    stringify: function(queryParams) {
+      var arrParam, encodedKey, key, query, stringifyKeyValuePair, value, _i, _len;
+      query = '';
+      stringifyKeyValuePair = function(encodedKey, value) {
+        if (value != null) {
+          return '&' + encodedKey + '=' + encodeURIComponent(value);
+        } else {
+          return '';
+        }
+      };
+      for (key in queryParams) {
+        if (!__hasProp.call(queryParams, key)) continue;
+        value = queryParams[key];
+        encodedKey = encodeURIComponent(key);
+        if (utils.isArray(value)) {
+          for (_i = 0, _len = value.length; _i < _len; _i++) {
+            arrParam = value[_i];
+            query += stringifyKeyValuePair(encodedKey, arrParam);
+          }
+        } else {
+          query += stringifyKeyValuePair(encodedKey, value);
+        }
+      }
+      return query && query.substring(1);
+    },
+    parse: function(queryString) {
+      var current, field, pair, pairs, params, value, _i, _len, _ref;
+      params = {};
+      if (!queryString) {
+        return params;
+      }
+      pairs = queryString.split('&');
+      for (_i = 0, _len = pairs.length; _i < _len; _i++) {
+        pair = pairs[_i];
+        if (!pair.length) {
+          continue;
+        }
+        _ref = pair.split('='), field = _ref[0], value = _ref[1];
+        if (!field.length) {
+          continue;
+        }
+        field = decodeURIComponent(field);
+        value = decodeURIComponent(value);
+        current = params[field];
+        if (current) {
+          if (current.push) {
+            current.push(value);
+          } else {
+            params[field] = [current, value];
+          }
+        } else {
+          params[field] = value;
+        }
+      }
+      return params;
+    }
+  }
+};
+
+if (typeof Object.seal === "function") {
+  Object.seal(utils);
+}
+
+module.exports = utils;
+
+});;loader.register('chaplin', function(e, r, module) {
+
+module.exports = {
+  Application: loader('chaplin/application'),
+  mediator: loader('chaplin/mediator'),
+  Dispatcher: loader('chaplin/dispatcher'),
+  Controller: loader('chaplin/controllers/controller'),
+  Composer: loader('chaplin/composer'),
+  Composition: loader('chaplin/lib/composition'),
+  Collection: loader('chaplin/models/collection'),
+  Model: loader('chaplin/models/model'),
+  Layout: loader('chaplin/views/layout'),
+  View: loader('chaplin/views/view'),
+  CollectionView: loader('chaplin/views/collection_view'),
+  Route: loader('chaplin/lib/route'),
+  Router: loader('chaplin/lib/router'),
+  EventBroker: loader('chaplin/lib/event_broker'),
+  support: loader('chaplin/lib/support'),
+  SyncMachine: loader('chaplin/lib/sync_machine'),
+  utils: loader('chaplin/lib/utils')
+};
+
+});
+var regDeps = function(Backbone, _) {
+  loader.register('backbone', function(exports, require, module) {
+    module.exports = Backbone;
+  });
+  loader.register('underscore', function(exports, require, module) {
+    module.exports = _;
+  });
+};
+
+if (typeof define === 'function' && define.amd) {
+  define(['backbone', 'underscore'], function(Backbone, _) {
+    regDeps(Backbone, _);
+    return loader('chaplin');
+  });
+} else if (typeof module === 'object' && module && module.exports) {
+  regDeps(require('backbone'), require('underscore'));
+  module.exports = loader('chaplin');
+} else if (typeof require === 'function') {
+  regDeps(window.Backbone, window._ || window.Backbone.utils);
+  window.Chaplin = loader('chaplin');
+} else {
+  throw new Error('Chaplin requires Common.js or AMD modules');
+}
+
+})();
 ;/*
- Vue.js v0.8.5
+ Vue.js v0.10.3
  (c) 2014 Evan You
  License: MIT
 */
@@ -13919,13 +25764,8 @@ function require(path, parent, orig) {
 
   // lookup failed
   if (null == resolved) {
-    orig = orig || path;
-    parent = parent || 'root';
-    var err = new Error('Failed to require "' + orig + '" from "' + parent + '"');
-    err.path = orig;
-    err.parent = parent;
-    err.require = true;
-    throw err;
+    throwError()
+    return
   }
 
   var module = require.modules[resolved];
@@ -13941,6 +25781,16 @@ function require(path, parent, orig) {
     module.call(this, mod.exports, require.relative(resolved), mod);
     delete module._resolving;
     module.exports = mod.exports;
+  }
+
+  function throwError () {
+    orig = orig || path;
+    parent = parent || 'root';
+    var err = new Error('Failed to require "' + orig + '" from "' + parent + '"');
+    err.path = orig;
+    err.parent = parent;
+    err.require = true;
+    throw err;
   }
 
   return module.exports;
@@ -13972,21 +25822,21 @@ require.aliases = {};
  * @api private
  */
 
+require.exts = [
+    '',
+    '.js',
+    '.json',
+    '/index.js',
+    '/index.json'
+ ];
+
 require.resolve = function(path) {
   if (path.charAt(0) === '/') path = path.slice(1);
 
-  var paths = [
-    path,
-    path + '.js',
-    path + '.json',
-    path + '/index.js',
-    path + '/index.json'
-  ];
-
-  for (var i = 0; i < paths.length; i++) {
-    var path = paths[i];
-    if (require.modules.hasOwnProperty(path)) return path;
-    if (require.aliases.hasOwnProperty(path)) return require.aliases[path];
+  for (var i = 0; i < 5; i++) {
+    var fullPath = path + require.exts[i];
+    if (require.modules.hasOwnProperty(fullPath)) return fullPath;
+    if (require.aliases.hasOwnProperty(fullPath)) return require.aliases[fullPath];
   }
 };
 
@@ -14000,6 +25850,7 @@ require.resolve = function(path) {
  */
 
 require.normalize = function(curr, path) {
+
   var segs = [];
 
   if ('.' != path.charAt(0)) return path;
@@ -14008,13 +25859,12 @@ require.normalize = function(curr, path) {
   path = path.split('/');
 
   for (var i = 0; i < path.length; ++i) {
-    if ('..' == path[i]) {
+    if ('..' === path[i]) {
       curr.pop();
     } else if ('.' != path[i] && '' != path[i]) {
       segs.push(path[i]);
     }
   }
-
   return curr.concat(segs).join('/');
 };
 
@@ -14040,9 +25890,14 @@ require.register = function(path, definition) {
 
 require.alias = function(from, to) {
   if (!require.modules.hasOwnProperty(from)) {
-    throw new Error('Failed to alias "' + from + '", it does not exist');
+    throwError()
+    return
   }
   require.aliases[to] = from;
+
+  function throwError () {
+    throw new Error('Failed to alias "' + from + '", it does not exist');
+  }
 };
 
 /**
@@ -14055,18 +25910,6 @@ require.alias = function(from, to) {
 
 require.relative = function(parent) {
   var p = require.normalize(parent, '..');
-
-  /**
-   * lastIndexOf helper.
-   */
-
-  function lastIndexOf(arr, obj) {
-    var i = arr.length;
-    while (i--) {
-      if (arr[i] === obj) return i;
-    }
-    return -1;
-  }
 
   /**
    * The relative require() itself.
@@ -14083,16 +25926,20 @@ require.relative = function(parent) {
 
   localRequire.resolve = function(path) {
     var c = path.charAt(0);
-    if ('/' == c) return path.slice(1);
-    if ('.' == c) return require.normalize(p, path);
+    if ('/' === c) return path.slice(1);
+    if ('.' === c) return require.normalize(p, path);
 
     // resolve deps by returning
     // the dep in the nearest "deps"
     // directory
     var segs = parent.split('/');
-    var i = lastIndexOf(segs, 'deps') + 1;
-    if (!i) i = 0;
-    path = segs.slice(0, i + 1).join('/') + '/deps/' + path;
+    var i = segs.length;
+    while (i--) {
+      if (segs[i] === 'deps') {
+        break;
+      }
+    }
+    path = segs.slice(0, i + 2).join('/') + '/deps/' + path;
     return path;
   };
 
@@ -14106,179 +25953,47 @@ require.relative = function(parent) {
 
   return localRequire;
 };
-require.register("component-emitter/index.js", function(exports, require, module){
-
-/**
- * Expose `Emitter`.
- */
-
-module.exports = Emitter;
-
-/**
- * Initialize a new `Emitter`.
- *
- * @api public
- */
-
-function Emitter(obj) {
-  if (obj) return mixin(obj);
-};
-
-/**
- * Mixin the emitter properties.
- *
- * @param {Object} obj
- * @return {Object}
- * @api private
- */
-
-function mixin(obj) {
-  for (var key in Emitter.prototype) {
-    obj[key] = Emitter.prototype[key];
-  }
-  return obj;
-}
-
-/**
- * Listen on the given `event` with `fn`.
- *
- * @param {String} event
- * @param {Function} fn
- * @return {Emitter}
- * @api public
- */
-
-Emitter.prototype.on =
-Emitter.prototype.addEventListener = function(event, fn){
-  this._callbacks = this._callbacks || {};
-  (this._callbacks[event] = this._callbacks[event] || [])
-    .push(fn);
-  return this;
-};
-
-/**
- * Adds an `event` listener that will be invoked a single
- * time then automatically removed.
- *
- * @param {String} event
- * @param {Function} fn
- * @return {Emitter}
- * @api public
- */
-
-Emitter.prototype.once = function(event, fn){
-  var self = this;
-  this._callbacks = this._callbacks || {};
-
-  function on() {
-    self.off(event, on);
-    fn.apply(this, arguments);
-  }
-
-  on.fn = fn;
-  this.on(event, on);
-  return this;
-};
-
-/**
- * Remove the given callback for `event` or all
- * registered callbacks.
- *
- * @param {String} event
- * @param {Function} fn
- * @return {Emitter}
- * @api public
- */
-
-Emitter.prototype.off =
-Emitter.prototype.removeListener =
-Emitter.prototype.removeAllListeners =
-Emitter.prototype.removeEventListener = function(event, fn){
-  this._callbacks = this._callbacks || {};
-
-  // all
-  if (0 == arguments.length) {
-    this._callbacks = {};
-    return this;
-  }
-
-  // specific event
-  var callbacks = this._callbacks[event];
-  if (!callbacks) return this;
-
-  // remove all handlers
-  if (1 == arguments.length) {
-    delete this._callbacks[event];
-    return this;
-  }
-
-  // remove specific handler
-  var cb;
-  for (var i = 0; i < callbacks.length; i++) {
-    cb = callbacks[i];
-    if (cb === fn || cb.fn === fn) {
-      callbacks.splice(i, 1);
-      break;
-    }
-  }
-  return this;
-};
-
-/**
- * Emit `event` with the given args.
- *
- * @param {String} event
- * @param {Mixed} ...
- * @return {Emitter}
- */
-
-Emitter.prototype.emit = function(event){
-  this._callbacks = this._callbacks || {};
-  var args = [].slice.call(arguments, 1)
-    , callbacks = this._callbacks[event];
-
-  if (callbacks) {
-    callbacks = callbacks.slice(0);
-    for (var i = 0, len = callbacks.length; i < len; ++i) {
-      callbacks[i].apply(this, args);
-    }
-  }
-
-  return this;
-};
-
-/**
- * Return array of callbacks for `event`.
- *
- * @param {String} event
- * @return {Array}
- * @api public
- */
-
-Emitter.prototype.listeners = function(event){
-  this._callbacks = this._callbacks || {};
-  return this._callbacks[event] || [];
-};
-
-/**
- * Check if this emitter has `event` handlers.
- *
- * @param {String} event
- * @return {Boolean}
- * @api public
- */
-
-Emitter.prototype.hasListeners = function(event){
-  return !! this.listeners(event).length;
-};
-
-});
 require.register("vue/src/main.js", function(exports, require, module){
 var config      = require('./config'),
     ViewModel   = require('./viewmodel'),
-    directives  = require('./directives'),
-    filters     = require('./filters'),
-    utils       = require('./utils')
+    utils       = require('./utils'),
+    makeHash    = utils.hash,
+    assetTypes  = ['directive', 'filter', 'partial', 'effect', 'component']
+
+// require these so Browserify can catch them
+// so they can be used in Vue.require
+require('./observer')
+require('./transition')
+
+ViewModel.options = config.globalAssets = {
+    directives  : require('./directives'),
+    filters     : require('./filters'),
+    partials    : makeHash(),
+    effects     : makeHash(),
+    components  : makeHash()
+}
+
+/**
+ *  Expose asset registration methods
+ */
+assetTypes.forEach(function (type) {
+    ViewModel[type] = function (id, value) {
+        var hash = this.options[type + 's']
+        if (!hash) {
+            hash = this.options[type + 's'] = makeHash()
+        }
+        if (!value) return hash[id]
+        if (type === 'partial') {
+            value = utils.toFragment(value)
+        } else if (type === 'component') {
+            value = utils.toConstructor(value)
+        } else if (type === 'filter') {
+            utils.checkFilter(value)
+        }
+        hash[id] = value
+        return this
+    }
+})
 
 /**
  *  Set config options
@@ -14297,47 +26012,27 @@ ViewModel.config = function (opts, val) {
 }
 
 /**
- *  Allows user to register/retrieve a directive definition
+ *  Expose an interface for plugins
  */
-ViewModel.directive = function (id, fn) {
-    if (!fn) return directives[id]
-    directives[id] = fn
-    return this
-}
+ViewModel.use = function (plugin) {
+    if (typeof plugin === 'string') {
+        try {
+            plugin = require(plugin)
+        } catch (e) {
+            utils.warn('Cannot find plugin: ' + plugin)
+            return
+        }
+    }
 
-/**
- *  Allows user to register/retrieve a filter function
- */
-ViewModel.filter = function (id, fn) {
-    if (!fn) return filters[id]
-    filters[id] = fn
-    return this
-}
+    // additional parameters
+    var args = [].slice.call(arguments, 1)
+    args.unshift(this)
 
-/**
- *  Allows user to register/retrieve a ViewModel constructor
- */
-ViewModel.component = function (id, Ctor) {
-    if (!Ctor) return utils.components[id]
-    utils.components[id] = utils.toConstructor(Ctor)
-    return this
-}
-
-/**
- *  Allows user to register/retrieve a template partial
- */
-ViewModel.partial = function (id, partial) {
-    if (!partial) return utils.partials[id]
-    utils.partials[id] = utils.toFragment(partial)
-    return this
-}
-
-/**
- *  Allows user to register/retrieve a transition definition object
- */
-ViewModel.transition = function (id, transition) {
-    if (!transition) return utils.transitions[id]
-    utils.transitions[id] = transition
+    if (typeof plugin.install === 'function') {
+        plugin.install.apply(plugin, args)
+    } else {
+        plugin.apply(null, args)
+    }
     return this
 }
 
@@ -14346,24 +26041,6 @@ ViewModel.transition = function (id, transition) {
  */
 ViewModel.require = function (path) {
     return require('./' + path)
-}
-
-/**
- *  Expose an interface for plugins
- */
-ViewModel.use = function (plugin) {
-    if (typeof plugin === 'string') {
-        try {
-            plugin = require(plugin)
-        } catch (e) {
-            return utils.warn('Cannot find plugin: ' + plugin)
-        }
-    }
-    if (typeof plugin === 'function') {
-        plugin(ViewModel)
-    } else if (plugin.install) {
-        plugin.install(ViewModel)
-    }
 }
 
 ViewModel.extend = extend
@@ -14376,6 +26053,13 @@ ViewModel.nextTick = utils.nextTick
 function extend (options) {
 
     var ParentVM = this
+
+    // extend data options need to be copied
+    // on instantiation
+    if (options.data) {
+        options.defaultData = options.data
+        delete options.data
+    }
 
     // inherit options
     options = inheritOptions(options, ParentVM.options, true)
@@ -14392,23 +26076,20 @@ function extend (options) {
     var proto = ExtendedVM.prototype = Object.create(ParentVM.prototype)
     utils.defProtected(proto, 'constructor', ExtendedVM)
 
-    // copy prototype props
-    var methods = options.methods
-    if (methods) {
-        for (var key in methods) {
-            if (
-                !(key in ViewModel.prototype) &&
-                typeof methods[key] === 'function'
-            ) {
-                proto[key] = methods[key]
-            }
-        }
-    }
-
     // allow extended VM to be further extended
-    ExtendedVM.extend = extend
-    ExtendedVM.super = ParentVM
+    ExtendedVM.extend  = extend
+    ExtendedVM.super   = ParentVM
     ExtendedVM.options = options
+
+    // allow extended VM to add its own assets
+    assetTypes.forEach(function (type) {
+        ExtendedVM[type] = ViewModel[type]
+    })
+
+    // allow extended VM to use plugins
+    ExtendedVM.use     = ViewModel.use
+    ExtendedVM.require = ViewModel.require
+
     return ExtendedVM
 }
 
@@ -14426,14 +26107,13 @@ function extend (options) {
  *  extension option, but only as an instance option.
  */
 function inheritOptions (child, parent, topLevel) {
-    child = child || utils.hash()
+    child = child || {}
     if (!parent) return child
     for (var key in parent) {
-        if (key === 'el' || key === 'methods') continue
+        if (key === 'el') continue
         var val = child[key],
-            parentVal = parent[key],
-            type = utils.typeOf(val)
-        if (topLevel && type === 'Function' && parentVal) {
+            parentVal = parent[key]
+        if (topLevel && typeof val === 'function' && parentVal) {
             // merge hook functions into an array
             child[key] = [val]
             if (Array.isArray(parentVal)) {
@@ -14441,9 +26121,13 @@ function inheritOptions (child, parent, topLevel) {
             } else {
                 child[key].push(parentVal)
             }
-        } else if (topLevel && type === 'Object') {
+        } else if (
+            topLevel &&
+            (utils.isTrueObject(val) || utils.isTrueObject(parentVal))
+            && !(parentVal instanceof ViewModel)
+        ) {
             // merge toplevel object options
-            inheritOptions(val, parentVal)
+            child[key] = inheritOptions(val, parentVal)
         } else if (val === undefined) {
             // inherit if child doesn't override
             child[key] = parentVal
@@ -14455,105 +26139,177 @@ function inheritOptions (child, parent, topLevel) {
 module.exports = ViewModel
 });
 require.register("vue/src/emitter.js", function(exports, require, module){
-// shiv to make this work for Component, Browserify and Node at the same time.
-var Emitter,
-    componentEmitter = 'emitter'
+function Emitter (ctx) {
+    this._ctx = ctx || this
+}
 
-try {
-    // Requiring without a string literal will make browserify
-    // unable to parse the dependency, thus preventing it from
-    // stopping the compilation after a failed lookup.
-    Emitter = require(componentEmitter)
-} catch (e) {
-    Emitter = require('events').EventEmitter
-    Emitter.prototype.off = function () {
-        var method = arguments.length > 1
-            ? this.removeListener
-            : this.removeAllListeners
-        return method.apply(this, arguments)
+var EmitterProto = Emitter.prototype
+
+EmitterProto.on = function(event, fn){
+    this._cbs = this._cbs || {}
+    ;(this._cbs[event] = this._cbs[event] || [])
+        .push(fn)
+    return this
+}
+
+EmitterProto.once = function(event, fn){
+    var self = this
+    this._cbs = this._cbs || {}
+
+    function on () {
+        self.off(event, on)
+        fn.apply(this, arguments)
     }
+
+    on.fn = fn
+    this.on(event, on)
+    return this
+}
+
+EmitterProto.off = function(event, fn){
+    this._cbs = this._cbs || {}
+
+    // all
+    if (!arguments.length) {
+        this._cbs = {}
+        return this
+    }
+
+    // specific event
+    var callbacks = this._cbs[event]
+    if (!callbacks) return this
+
+    // remove all handlers
+    if (arguments.length === 1) {
+        delete this._cbs[event]
+        return this
+    }
+
+    // remove specific handler
+    var cb
+    for (var i = 0; i < callbacks.length; i++) {
+        cb = callbacks[i]
+        if (cb === fn || cb.fn === fn) {
+            callbacks.splice(i, 1)
+            break
+        }
+    }
+    return this
+}
+
+EmitterProto.emit = function(event, a, b, c){
+    this._cbs = this._cbs || {}
+    var callbacks = this._cbs[event]
+
+    if (callbacks) {
+        callbacks = callbacks.slice(0)
+        for (var i = 0, len = callbacks.length; i < len; i++) {
+            callbacks[i].call(this._ctx, a, b, c)
+        }
+    }
+
+    return this
 }
 
 module.exports = Emitter
 });
 require.register("vue/src/config.js", function(exports, require, module){
-var prefix = 'v',
-    specialAttributes = [
-        'pre',
-        'text',
-        'repeat',
-        'partial',
-        'with',
-        'component',
-        'component-id',
-        'transition'
-    ],
-    config = module.exports = {
+var TextParser = require('./text-parser')
 
-        debug       : false,
-        silent      : false,
-        enterClass  : 'v-enter',
-        leaveClass  : 'v-leave',
-        attrs       : {},
-
-        get prefix () {
-            return prefix
-        },
-        set prefix (val) {
-            prefix = val
-            updatePrefix()
-        }
-        
-    }
-
-function updatePrefix () {
-    specialAttributes.forEach(function (attr) {
-        config.attrs[attr] = prefix + '-' + attr
-    })
+module.exports = {
+    prefix         : 'v',
+    debug          : false,
+    silent         : false,
+    enterClass     : 'v-enter',
+    leaveClass     : 'v-leave',
+    interpolate    : true
 }
 
-updatePrefix()
+Object.defineProperty(module.exports, 'delimiters', {
+    get: function () {
+        return TextParser.delimiters
+    },
+    set: function (delimiters) {
+        TextParser.setDelimiters(delimiters)
+    }
+})
 });
 require.register("vue/src/utils.js", function(exports, require, module){
 var config    = require('./config'),
-    attrs     = config.attrs,
-    toString  = Object.prototype.toString,
-    join      = Array.prototype.join,
-    console   = window.console,
-
+    toString  = ({}).toString,
+    win       = window,
+    console   = win.console,
+    timeout   = win.setTimeout,
+    def       = Object.defineProperty,
+    THIS_RE   = /[^\w]this[^\w]/,
+    OBJECT    = 'object',
     hasClassList = 'classList' in document.documentElement,
     ViewModel // late def
 
-var defer =
-    window.requestAnimationFrame ||
-    window.webkitRequestAnimationFrame ||
-    window.setTimeout
-
-/**
- *  Create a prototype-less object
- *  which is a better hash/map
- */
-function makeHash () {
-    return Object.create(null)
-}
-
 var utils = module.exports = {
 
-    hash: makeHash,
+    /**
+     *  get a value from an object keypath
+     */
+    get: function (obj, key) {
+        /* jshint eqeqeq: false */
+        if (key.indexOf('.') < 0) {
+            return obj[key]
+        }
+        var path = key.split('.'),
+            d = -1, l = path.length
+        while (++d < l && obj != null) {
+            obj = obj[path[d]]
+        }
+        return obj
+    },
 
-    // global storage for user-registered
-    // vms, partials and transitions
-    components  : makeHash(),
-    partials    : makeHash(),
-    transitions : makeHash(),
+    /**
+     *  set a value to an object keypath
+     */
+    set: function (obj, key, val) {
+        /* jshint eqeqeq: false */
+        if (key.indexOf('.') < 0) {
+            obj[key] = val
+            return
+        }
+        var path = key.split('.'),
+            d = -1, l = path.length - 1
+        while (++d < l) {
+            if (obj[path[d]] == null) {
+                obj[path[d]] = {}
+            }
+            obj = obj[path[d]]
+        }
+        obj[path[d]] = val
+    },
+
+    /**
+     *  return the base segment of a keypath
+     */
+    baseKey: function (key) {
+        return key.indexOf('.') > 0
+            ? key.split('.')[0]
+            : key
+    },
+
+    /**
+     *  Create a prototype-less object
+     *  which is a better hash/map
+     */
+    hash: function () {
+        return Object.create(null)
+    },
 
     /**
      *  get an attribute and remove it.
      */
-    attr: function (el, type, noRemove) {
-        var attr = attrs[type],
+    attr: function (el, type) {
+        var attr = config.prefix + '-' + type,
             val = el.getAttribute(attr)
-        if (!noRemove && val !== null) el.removeAttribute(attr)
+        if (val !== null) {
+            el.removeAttribute(attr)
+        }
         return val
     },
 
@@ -14562,21 +26318,28 @@ var utils = module.exports = {
      *  This avoids it being included in JSON.stringify
      *  or for...in loops.
      */
-    defProtected: function (obj, key, val, enumerable, configurable) {
-        if (obj.hasOwnProperty(key)) return
-        Object.defineProperty(obj, key, {
+    defProtected: function (obj, key, val, enumerable, writable) {
+        def(obj, key, {
             value        : val,
-            enumerable   : !!enumerable,
-            configurable : !!configurable
+            enumerable   : enumerable,
+            writable     : writable,
+            configurable : true
         })
     },
 
     /**
-     *  Accurate type check
-     *  internal use only, so no need to check for NaN
+     *  A less bullet-proof but more efficient type check
+     *  than Object.prototype.toString
      */
-    typeOf: function (obj) {
-        return toString.call(obj).slice(8, -1)
+    isObject: function (obj) {
+        return typeof obj === OBJECT && obj && !Array.isArray(obj)
+    },
+
+    /**
+     *  A more accurate but less efficient type check
+     */
+    isTrueObject: function (obj) {
+        return toString.call(obj) === '[object Object]'
     },
 
     /**
@@ -14590,29 +26353,36 @@ var utils = module.exports = {
     },
 
     /**
-     *  Make sure only strings, booleans, numbers and
-     *  objects are output to html. otherwise, ouput empty string.
+     *  Make sure null and undefined output empty string
      */
-    toText: function (value) {
-        /* jshint eqeqeq: false */
-        var type = typeof value
-        return (type === 'string' ||
-            type === 'boolean' ||
-            (type === 'number' && value == value)) // deal with NaN
-                ? value
-                : type === 'object' && value !== null
-                    ? JSON.stringify(value)
-                    : ''
+    guard: function (value) {
+        /* jshint eqeqeq: false, eqnull: true */
+        return value == null
+            ? ''
+            : (typeof value == 'object')
+                ? JSON.stringify(value)
+                : value
+    },
+
+    /**
+     *  When setting value on the VM, parse possible numbers
+     */
+    checkNumber: function (value) {
+        return (isNaN(value) || value === null || typeof value === 'boolean')
+            ? value
+            : Number(value)
     },
 
     /**
      *  simple extend
      */
-    extend: function (obj, ext, protective) {
+    extend: function (obj, ext) {
         for (var key in ext) {
-            if (protective && obj[key]) continue
-            obj[key] = ext[key]
+            if (obj[key] !== ext[key]) {
+                obj[key] = ext[key]
+            }
         }
+        return obj
     },
 
     /**
@@ -14641,6 +26411,11 @@ var utils = module.exports = {
         if (template.charAt(0) === '#') {
             var templateNode = document.getElementById(template.slice(1))
             if (!templateNode) return
+            // if its a template tag and the browser supports it,
+            // its content is already a document fragment!
+            if (templateNode.tagName === 'TEMPLATE' && templateNode.content) {
+                return templateNode.content
+            }
             template = templateNode.innerHTML
         }
         var node = document.createElement('div'),
@@ -14649,7 +26424,9 @@ var utils = module.exports = {
         node.innerHTML = template.trim()
         /* jshint boss: true */
         while (child = node.firstChild) {
-            frag.appendChild(child)
+            if (node.nodeType === 1) {
+                frag.appendChild(child)
+            }
         }
         return frag
     },
@@ -14660,11 +26437,21 @@ var utils = module.exports = {
      */
     toConstructor: function (obj) {
         ViewModel = ViewModel || require('./viewmodel')
-        return utils.typeOf(obj) === 'Object'
+        return utils.isObject(obj)
             ? ViewModel.extend(obj)
             : typeof obj === 'function'
                 ? obj
                 : null
+    },
+
+    /**
+     *  Check if a filter function contains references to `this`
+     *  If yes, mark it as a computed filter.
+     */
+    checkFilter: function (filter) {
+        if (THIS_RE.test(filter.toString())) {
+            filter.computed = true
+        }
     },
 
     /**
@@ -14674,6 +26461,7 @@ var utils = module.exports = {
         var components = options.components,
             partials   = options.partials,
             template   = options.template,
+            filters    = options.filters,
             key
         if (components) {
             for (key in components) {
@@ -14685,30 +26473,13 @@ var utils = module.exports = {
                 partials[key] = utils.toFragment(partials[key])
             }
         }
+        if (filters) {
+            for (key in filters) {
+                utils.checkFilter(filters[key])
+            }
+        }
         if (template) {
             options.template = utils.toFragment(template)
-        }
-    },
-
-    /**
-     *  log for debugging
-     */
-    log: function () {
-        if (config.debug && console) {
-            console.log(join.call(arguments, ' '))
-        }
-    },
-    
-    /**
-     *  warnings, traces by default
-     *  can be suppressed by `silent` option.
-     */
-    warn: function() {
-        if (!config.silent && console) {
-            console.warn(join.call(arguments, ' '))
-            if (config.debug) {
-                console.trace()
-            }
         }
     },
 
@@ -14716,7 +26487,7 @@ var utils = module.exports = {
      *  used to defer batch updates
      */
     nextTick: function (cb) {
-        defer(cb, 0)
+        timeout(cb, 0)
     },
 
     /**
@@ -14748,6 +26519,48 @@ var utils = module.exports = {
             }
             el.className = cur.trim()
         }
+    },
+
+    /**
+     *  Convert an object to Array
+     *  used in v-repeat and array filters
+     */
+    objectToArray: function (obj) {
+        var res = [], val, data
+        for (var key in obj) {
+            val = obj[key]
+            data = utils.isObject(val)
+                ? val
+                : { $value: val }
+            data.$key = key
+            res.push(data)
+        }
+        return res
+    }
+}
+
+enableDebug()
+function enableDebug () {
+    /**
+     *  log for debugging
+     */
+    utils.log = function (msg) {
+        if (config.debug && console) {
+            console.log(msg)
+        }
+    }
+    
+    /**
+     *  warnings, traces by default
+     *  can be suppressed by `silent` option.
+     */
+    utils.warn = function (msg) {
+        if (!config.silent && console) {
+            console.warn(msg)
+            if (config.debug && console.trace) {
+                console.trace()
+            }
+        }
     }
 }
 });
@@ -14761,20 +26574,28 @@ var Emitter     = require('./emitter'),
     TextParser  = require('./text-parser'),
     DepsParser  = require('./deps-parser'),
     ExpParser   = require('./exp-parser'),
+    ViewModel,
     
     // cache methods
-    slice       = Array.prototype.slice,
-    log         = utils.log,
-    makeHash    = utils.hash,
+    slice       = [].slice,
     extend      = utils.extend,
-    def         = utils.defProtected,
-    hasOwn      = Object.prototype.hasOwnProperty,
+    hasOwn      = ({}).hasOwnProperty,
+    def         = Object.defineProperty,
 
     // hooks to register
     hooks = [
         'created', 'ready',
         'beforeDestroy', 'afterDestroy',
-        'enteredView', 'leftView'
+        'attached', 'detached'
+    ],
+
+    // list of priority directives
+    // that needs to be checked in specific order
+    priorityDirectives = [
+        'if',
+        'repeat',
+        'view',
+        'component'
     ]
 
 /**
@@ -14783,107 +26604,157 @@ var Emitter     = require('./emitter'),
  */
 function Compiler (vm, options) {
 
-    var compiler = this
-    // indicate that we are intiating this instance
-    // so we should not run any transitions
-    compiler.init = true
+    var compiler = this,
+        key, i
+
+    // default state
+    compiler.init       = true
+    compiler.destroyed  = false
 
     // process and extend options
-    options = compiler.options = options || makeHash()
+    options = compiler.options = options || {}
     utils.processOptions(options)
 
-    // copy data, methods & compiler options
-    var data = compiler.data = options.data || {}
-    extend(vm, data, true)
-    extend(vm, options.methods, true)
+    // copy compiler options
     extend(compiler, options.compilerOptions)
+    // repeat indicates this is a v-repeat instance
+    compiler.repeat   = compiler.repeat || false
+    // expCache will be shared between v-repeat instances
+    compiler.expCache = compiler.expCache || {}
 
     // initialize element
-    var el = compiler.setupElement(options)
-    log('\nnew VM instance:', el.tagName, '\n')
+    var el = compiler.el = compiler.setupElement(options)
+    utils.log('\nnew VM instance: ' + el.tagName + '\n')
 
-    // set compiler properties
-    compiler.vm  = vm
-    compiler.bindings = makeHash()
-    compiler.dirs = []
+    // set other compiler properties
+    compiler.vm       = el.vue_vm = vm
+    compiler.bindings = utils.hash()
+    compiler.dirs     = []
     compiler.deferred = []
-    compiler.exps = []
     compiler.computed = []
-    compiler.childCompilers = []
-    compiler.emitter = new Emitter()
-
-    // set inenumerable VM properties
-    def(vm, '$', makeHash())
-    def(vm, '$el', el)
-    def(vm, '$compiler', compiler)
-    def(vm, '$root', getRoot(compiler).vm)
-
-    // set parent VM
-    // and register child id on parent
-    var parent = compiler.parentCompiler,
-        childId = utils.attr(el, 'component-id')
-    if (parent) {
-        parent.childCompilers.push(compiler)
-        def(vm, '$parent', parent.vm)
-        if (childId) {
-            compiler.childId = childId
-            parent.vm.$[childId] = vm
-        }
-    }
-
-    // setup observer
-    compiler.setupObserver()
+    compiler.children = []
+    compiler.emitter  = new Emitter(vm)
 
     // create bindings for computed properties
-    var computed = options.computed
-    if (computed) {
-        for (var key in computed) {
+    if (options.methods) {
+        for (key in options.methods) {
             compiler.createBinding(key)
         }
     }
 
+    // create bindings for methods
+    if (options.computed) {
+        for (key in options.computed) {
+            compiler.createBinding(key)
+        }
+    }
+
+    // VM ---------------------------------------------------------------------
+
+    // set VM properties
+    vm.$         = {}
+    vm.$el       = el
+    vm.$options  = options
+    vm.$compiler = compiler
+    vm.$event    = null
+
+    // set parent & root
+    var parentVM = options.parent
+    if (parentVM) {
+        compiler.parent = parentVM.$compiler
+        parentVM.$compiler.children.push(compiler)
+        vm.$parent = parentVM
+    }
+    vm.$root = getRoot(compiler).vm
+
+    // DATA -------------------------------------------------------------------
+
+    // setup observer
+    // this is necesarry for all hooks and data observation events
+    compiler.setupObserver()
+
+    // initialize data
+    var data = compiler.data = options.data || {},
+        defaultData = options.defaultData
+    if (defaultData) {
+        for (key in defaultData) {
+            if (!hasOwn.call(data, key)) {
+                data[key] = defaultData[key]
+            }
+        }
+    }
+
+    // copy paramAttributes
+    var params = options.paramAttributes
+    if (params) {
+        i = params.length
+        while (i--) {
+            data[params[i]] = utils.checkNumber(
+                compiler.eval(
+                    el.getAttribute(params[i])
+                )
+            )
+        }
+    }
+
+    // copy data properties to vm
+    // so user can access them in the created hook
+    extend(vm, data)
+    vm.$data = data
+
     // beforeCompile hook
     compiler.execHook('created')
 
-    // the user might have set some props on the vm 
-    // so copy it back to the data...
-    extend(data, vm)
+    // the user might have swapped the data ...
+    data = compiler.data = vm.$data
 
-    // observe the data
-    Observer.observe(data, '', compiler.observer)
-    
-    // for repeated items, create an index binding
-    // which should be inenumerable but configurable
-    if (compiler.repeat) {
-        //data.$index = compiler.repeatIndex
-        def(data, '$index', compiler.repeatIndex, false, true)
-        compiler.createBinding('$index')
+    // user might also set some properties on the vm
+    // in which case we should copy back to $data
+    var vmProp
+    for (key in vm) {
+        vmProp = vm[key]
+        if (
+            key.charAt(0) !== '$' &&
+            data[key] !== vmProp &&
+            typeof vmProp !== 'function'
+        ) {
+            data[key] = vmProp
+        }
     }
 
-    // allow the $data object to be swapped
-    Object.defineProperty(vm, '$data', {
-        enumerable: false,
-        get: function () {
-            return compiler.data
-        },
-        set: function (newData) {
-            var oldData = compiler.data
-            Observer.unobserve(oldData, '', compiler.observer)
-            compiler.data = newData
-            Observer.copyPaths(newData, oldData)
-            Observer.observe(newData, '', compiler.observer)
-        }
-    })
+    // now we can observe the data.
+    // this will convert data properties to getter/setters
+    // and emit the first batch of set events, which will
+    // in turn create the corresponding bindings.
+    compiler.observeData(data)
 
-    // now parse the DOM, during which we will create necessary bindings
-    // and bind the parsed directives
+    // COMPILE ----------------------------------------------------------------
+
+    // before compiling, resolve content insertion points
+    if (options.template) {
+        this.resolveContent()
+    }
+
+    // now parse the DOM and bind directives.
+    // During this stage, we will also create bindings for
+    // encountered keypaths that don't have a binding yet.
     compiler.compile(el, true)
 
-    // bind deferred directives (child components)
-    compiler.deferred.forEach(compiler.bindDirective, compiler)
+    // Any directive that creates child VMs are deferred
+    // so that when they are compiled, all bindings on the
+    // parent VM have been created.
+    i = compiler.deferred.length
+    while (i--) {
+        compiler.bindDirective(compiler.deferred[i])
+    }
+    compiler.deferred = null
 
-    // extract dependencies for computed properties
-    compiler.parseDeps()
+    // extract dependencies for computed properties.
+    // this will evaluated all collected computed bindings
+    // and collect get events that are emitted.
+    if (this.computed.length) {
+        DepsParser.parse(this.computed)
+    }
 
     // done!
     compiler.init = false
@@ -14900,38 +26771,110 @@ var CompilerProto = Compiler.prototype
  */
 CompilerProto.setupElement = function (options) {
     // create the node first
-    var el = this.el = typeof options.el === 'string'
+    var el = typeof options.el === 'string'
         ? document.querySelector(options.el)
         : options.el || document.createElement(options.tagName || 'div')
 
-    var template = options.template
+    var template = options.template,
+        child, replacer, i, attr, attrs
+
     if (template) {
+        // collect anything already in there
+        if (el.hasChildNodes()) {
+            this.rawContent = document.createElement('div')
+            /* jshint boss: true */
+            while (child = el.firstChild) {
+                this.rawContent.appendChild(child)
+            }
+        }
         // replace option: use the first node in
         // the template directly
         if (options.replace && template.childNodes.length === 1) {
-            var replacer = template.childNodes[0].cloneNode(true)
+            replacer = template.childNodes[0].cloneNode(true)
             if (el.parentNode) {
                 el.parentNode.insertBefore(replacer, el)
                 el.parentNode.removeChild(el)
             }
+            // copy over attributes
+            if (el.hasAttributes()) {
+                i = el.attributes.length
+                while (i--) {
+                    attr = el.attributes[i]
+                    replacer.setAttribute(attr.name, attr.value)
+                }
+            }
+            // replace
             el = replacer
         } else {
-            el.innerHTML = ''
             el.appendChild(template.cloneNode(true))
         }
+
     }
 
     // apply element options
     if (options.id) el.id = options.id
     if (options.className) el.className = options.className
-    var attrs = options.attributes
+    attrs = options.attributes
     if (attrs) {
-        for (var attr in attrs) {
+        for (attr in attrs) {
             el.setAttribute(attr, attrs[attr])
         }
     }
 
     return el
+}
+
+/**
+ *  Deal with <content> insertion points
+ *  per the Web Components spec
+ */
+CompilerProto.resolveContent = function () {
+
+    var outlets = slice.call(this.el.getElementsByTagName('content')),
+        raw = this.rawContent,
+        outlet, select, i, j, main
+
+    i = outlets.length
+    if (i) {
+        // first pass, collect corresponding content
+        // for each outlet.
+        while (i--) {
+            outlet = outlets[i]
+            if (raw) {
+                select = outlet.getAttribute('select')
+                if (select) { // select content
+                    outlet.content =
+                        slice.call(raw.querySelectorAll(select))
+                } else { // default content
+                    main = outlet
+                }
+            } else { // fallback content
+                outlet.content =
+                    slice.call(outlet.childNodes)
+            }
+        }
+        // second pass, actually insert the contents
+        for (i = 0, j = outlets.length; i < j; i++) {
+            outlet = outlets[i]
+            if (outlet === main) continue
+            insert(outlet, outlet.content)
+        }
+        // finally insert the main content
+        if (raw && main) {
+            insert(main, slice.call(raw.childNodes))
+        }
+    }
+
+    function insert (outlet, contents) {
+        var parent = outlet.parentNode,
+            i = 0, j = contents.length
+        for (; i < j; i++) {
+            parent.insertBefore(contents[i], outlet)
+        }
+        parent.removeChild(outlet)
+    }
+
+    this.rawContent = null
 }
 
 /**
@@ -14945,48 +26888,74 @@ CompilerProto.setupObserver = function () {
     var compiler = this,
         bindings = compiler.bindings,
         options  = compiler.options,
-        observer = compiler.observer = new Emitter()
+        observer = compiler.observer = new Emitter(compiler.vm)
 
     // a hash to hold event proxies for each root level key
     // so they can be referenced and removed later
-    observer.proxies = makeHash()
+    observer.proxies = {}
 
     // add own listeners which trigger binding updates
     observer
-        .on('get', function (key) {
-            check(key)
-            DepsParser.catcher.emit('get', bindings[key])
-        })
-        .on('set', function (key, val) {
-            observer.emit('change:' + key, val)
-            check(key)
-            bindings[key].update(val)
-        })
-        .on('mutate', function (key, val, mutation) {
-            observer.emit('change:' + key, val, mutation)
-            check(key)
-            bindings[key].pub()
-        })
-    
+        .on('get', onGet)
+        .on('set', onSet)
+        .on('mutate', onSet)
+
     // register hooks
-    hooks.forEach(function (hook) {
-        var fns = options[hook]
+    var i = hooks.length, j, hook, fns
+    while (i--) {
+        hook = hooks[i]
+        fns = options[hook]
         if (Array.isArray(fns)) {
-            var i = fns.length
+            j = fns.length
             // since hooks were merged with child at head,
             // we loop reversely.
-            while (i--) {
-                register(hook, fns[i])
+            while (j--) {
+                registerHook(hook, fns[j])
             }
         } else if (fns) {
-            register(hook, fns)
+            registerHook(hook, fns)
         }
-    })
+    }
 
-    function register (hook, fn) {
-        observer.on('hook:' + hook, function () {
-            fn.call(compiler.vm, options)
+    // broadcast attached/detached hooks
+    observer
+        .on('hook:attached', function () {
+            broadcast(1)
         })
+        .on('hook:detached', function () {
+            broadcast(0)
+        })
+
+    function onGet (key) {
+        check(key)
+        DepsParser.catcher.emit('get', bindings[key])
+    }
+
+    function onSet (key, val, mutation) {
+        observer.emit('change:' + key, val, mutation)
+        check(key)
+        bindings[key].update(val)
+    }
+
+    function registerHook (hook, fn) {
+        observer.on('hook:' + hook, function () {
+            fn.call(compiler.vm)
+        })
+    }
+
+    function broadcast (event) {
+        var children = compiler.children
+        if (children) {
+            var child, i = children.length
+            while (i--) {
+                child = children[i]
+                if (child.el.parentNode) {
+                    event = 'hook:' + (event ? 'attached' : 'detached')
+                    child.observer.emit(event)
+                    child.emitter.emit(event)
+                }
+            }
+        }
     }
 
     function check (key) {
@@ -14996,122 +26965,166 @@ CompilerProto.setupObserver = function () {
     }
 }
 
+CompilerProto.observeData = function (data) {
+
+    var compiler = this,
+        observer = compiler.observer
+
+    // recursively observe nested properties
+    Observer.observe(data, '', observer)
+
+    // also create binding for top level $data
+    // so it can be used in templates too
+    var $dataBinding = compiler.bindings['$data'] = new Binding(compiler, '$data')
+    $dataBinding.update(data)
+
+    // allow $data to be swapped
+    def(compiler.vm, '$data', {
+        get: function () {
+            compiler.observer.emit('get', '$data')
+            return compiler.data
+        },
+        set: function (newData) {
+            var oldData = compiler.data
+            Observer.unobserve(oldData, '', observer)
+            compiler.data = newData
+            Observer.copyPaths(newData, oldData)
+            Observer.observe(newData, '', observer)
+            update()
+        }
+    })
+
+    // emit $data change on all changes
+    observer
+        .on('set', onSet)
+        .on('mutate', onSet)
+
+    function onSet (key) {
+        if (key !== '$data') update()
+    }
+
+    function update () {
+        $dataBinding.update(compiler.data)
+        observer.emit('change:$data', compiler.data)
+    }
+}
+
 /**
  *  Compile a DOM node (recursive)
  */
 CompilerProto.compile = function (node, root) {
-
-    var compiler = this,
-        nodeType = node.nodeType,
-        tagName  = node.tagName
-
-    if (nodeType === 1 && tagName !== 'SCRIPT') { // a normal node
-
-        // skip anything with v-pre
-        if (utils.attr(node, 'pre') !== null) return
-
-        // special attributes to check
-        var repeatExp,
-            withKey,
-            partialId,
-            directive,
-            componentId = utils.attr(node, 'component') || tagName.toLowerCase(),
-            componentCtor = compiler.getOption('components', componentId)
-
-        // It is important that we access these attributes
-        // procedurally because the order matters.
-        //
-        // `utils.attr` removes the attribute once it gets the
-        // value, so we should not access them all at once.
-
-        // v-repeat has the highest priority
-        // and we need to preserve all other attributes for it.
-        /* jshint boss: true */
-        if (repeatExp = utils.attr(node, 'repeat')) {
-
-            // repeat block cannot have v-id at the same time.
-            directive = Directive.parse('repeat', repeatExp, compiler, node)
-            if (directive) {
-                directive.Ctor = componentCtor
-                // defer child component compilation
-                // so by the time they are compiled, the parent
-                // would have collected all bindings
-                compiler.deferred.push(directive)
-            }
-
-        // v-with has 2nd highest priority
-        } else if (root !== true && ((withKey = utils.attr(node, 'with')) || componentCtor)) {
-
-            directive = Directive.parse('with', withKey || '', compiler, node)
-            if (directive) {
-                directive.Ctor = componentCtor
-                compiler.deferred.push(directive)
-            }
-
-        } else {
-
-            // check transition property
-            node.vue_trans = utils.attr(node, 'transition')
-            
-            // replace innerHTML with partial
-            partialId = utils.attr(node, 'partial')
-            if (partialId) {
-                var partial = compiler.getOption('partials', partialId)
-                if (partial) {
-                    node.innerHTML = ''
-                    node.appendChild(partial.cloneNode(true))
-                }
-            }
-
-            // finally, only normal directives left!
-            compiler.compileNode(node)
-        }
-
-    } else if (nodeType === 3) { // text node
-
-        compiler.compileTextNode(node)
-
+    var nodeType = node.nodeType
+    if (nodeType === 1 && node.tagName !== 'SCRIPT') { // a normal node
+        this.compileElement(node, root)
+    } else if (nodeType === 3 && config.interpolate) {
+        this.compileTextNode(node)
     }
-
 }
 
 /**
- *  Compile a normal node
+ *  Check for a priority directive
+ *  If it is present and valid, return true to skip the rest
  */
-CompilerProto.compileNode = function (node) {
-    var i, j,
-        attrs = slice.call(node.attributes),
-        prefix = config.prefix + '-'
-    // parse if has attributes
-    if (attrs && attrs.length) {
-        var attr, isDirective, exps, exp, directive, dirname
-        // loop through all attributes
-        i = attrs.length
-        while (i--) {
+CompilerProto.checkPriorityDir = function (dirname, node, root) {
+    var expression, directive, Ctor
+    if (
+        dirname === 'component' &&
+        root !== true &&
+        (Ctor = this.resolveComponent(node, undefined, true))
+    ) {
+        directive = this.parseDirective(dirname, '', node)
+        directive.Ctor = Ctor
+    } else {
+        expression = utils.attr(node, dirname)
+        directive = expression && this.parseDirective(dirname, expression, node)
+    }
+    if (directive) {
+        if (root === true) {
+            utils.warn(
+                'Directive v-' + dirname + ' cannot be used on an already instantiated ' +
+                'VM\'s root node. Use it from the parent\'s template instead.'
+            )
+            return
+        }
+        this.deferred.push(directive)
+        return true
+    }
+}
+
+/**
+ *  Compile normal directives on a node
+ */
+CompilerProto.compileElement = function (node, root) {
+
+    // textarea is pretty annoying
+    // because its value creates childNodes which
+    // we don't want to compile.
+    if (node.tagName === 'TEXTAREA' && node.value) {
+        node.value = this.eval(node.value)
+    }
+
+    // only compile if this element has attributes
+    // or its tagName contains a hyphen (which means it could
+    // potentially be a custom element)
+    if (node.hasAttributes() || node.tagName.indexOf('-') > -1) {
+
+        // skip anything with v-pre
+        if (utils.attr(node, 'pre') !== null) {
+            return
+        }
+
+        var i, l, j, k
+
+        // check priority directives.
+        // if any of them are present, it will take over the node with a childVM
+        // so we can skip the rest
+        for (i = 0, l = priorityDirectives.length; i < l; i++) {
+            if (this.checkPriorityDir(priorityDirectives[i], node, root)) {
+                return
+            }
+        }
+
+        // check transition & animation properties
+        node.vue_trans  = utils.attr(node, 'transition')
+        node.vue_anim   = utils.attr(node, 'animation')
+        node.vue_effect = this.eval(utils.attr(node, 'effect'))
+
+        var prefix = config.prefix + '-',
+            attrs = slice.call(node.attributes),
+            params = this.options.paramAttributes,
+            attr, isDirective, exp, directives, directive, dirname
+
+        for (i = 0, l = attrs.length; i < l; i++) {
+
             attr = attrs[i]
             isDirective = false
 
             if (attr.name.indexOf(prefix) === 0) {
                 // a directive - split, parse and bind it.
                 isDirective = true
-                exps = Directive.split(attr.value)
+                dirname = attr.name.slice(prefix.length)
+                // build with multiple: true
+                directives = this.parseDirective(dirname, attr.value, node, true)
                 // loop through clauses (separated by ",")
                 // inside each attribute
-                j = exps.length
-                while (j--) {
-                    exp = exps[j]
-                    dirname = attr.name.slice(prefix.length)
-                    directive = Directive.parse(dirname, exp, this, node)
-                    if (directive) {
+                for (j = 0, k = directives.length; j < k; j++) {
+                    directive = directives[j]
+                    if (dirname === 'with') {
+                        this.bindDirective(directive, this.parent)
+                    } else {
                         this.bindDirective(directive)
                     }
                 }
-            } else {
+            } else if (config.interpolate) {
                 // non directive attribute, check interpolation tags
                 exp = TextParser.parseAttr(attr.value)
                 if (exp) {
-                    directive = Directive.parse('attr', attr.name + ':' + exp, this, node)
-                    if (directive) {
+                    directive = this.parseDirective('attr', attr.name + ':' + exp, node)
+                    if (params && params.indexOf(attr.name) > -1) {
+                        // a param attribute... we should use the parent binding
+                        // to avoid circular updates like size={{size}}
+                        this.bindDirective(directive, this.parent)
+                    } else {
                         this.bindDirective(directive)
                     }
                 }
@@ -15121,9 +27134,11 @@ CompilerProto.compileNode = function (node) {
                 node.removeAttribute(attr.name)
             }
         }
+
     }
+
     // recursively compile childNodes
-    if (node.childNodes.length) {
+    if (node.hasChildNodes()) {
         slice.call(node.childNodes).forEach(this.compile, this)
     }
 }
@@ -15135,28 +27150,24 @@ CompilerProto.compileTextNode = function (node) {
 
     var tokens = TextParser.parse(node.nodeValue)
     if (!tokens) return
-    var el, token, directive, partial, partialId, partialNodes
+    var el, token, directive
 
     for (var i = 0, l = tokens.length; i < l; i++) {
+
         token = tokens[i]
-        directive = partialNodes = null
+        directive = null
+
         if (token.key) { // a binding
             if (token.key.charAt(0) === '>') { // a partial
-                partialId = token.key.slice(1).trim()
-                partial = this.getOption('partials', partialId)
-                if (partial) {
-                    el = partial.cloneNode(true)
-                    // save an Array reference of the partial's nodes
-                    // so we can compile them AFTER appending the fragment
-                    partialNodes = slice.call(el.childNodes)
-                }
-            } else { // a real binding
+                el = document.createComment('ref')
+                directive = this.parseDirective('partial', token.key.slice(1), el)
+            } else {
                 if (!token.html) { // text binding
                     el = document.createTextNode('')
-                    directive = Directive.parse('text', token.key, this, el)
+                    directive = this.parseDirective('text', token.key, el)
                 } else { // html binding
                     el = document.createComment(config.prefix + '-html')
-                    directive = Directive.parse('html', token.key, this, el)
+                    directive = this.parseDirective('html', token.key, el)
                 }
             }
         } else { // a plain string
@@ -15165,86 +27176,102 @@ CompilerProto.compileTextNode = function (node) {
 
         // insert node
         node.parentNode.insertBefore(el, node)
-
         // bind directive
-        if (directive) {
-            this.bindDirective(directive)
-        }
-
-        // compile partial after appending, because its children's parentNode
-        // will change from the fragment to the correct parentNode.
-        // This could affect directives that need access to its element's parentNode.
-        if (partialNodes) {
-            partialNodes.forEach(this.compile, this)
-        }
+        this.bindDirective(directive)
 
     }
     node.parentNode.removeChild(node)
 }
 
 /**
+ *  Parse a directive name/value pair into one or more
+ *  directive instances
+ */
+CompilerProto.parseDirective = function (name, value, el, multiple) {
+    var compiler = this,
+        definition = compiler.getOption('directives', name)
+    if (definition) {
+        // parse into AST-like objects
+        var asts = Directive.parse(value)
+        return multiple
+            ? asts.map(build)
+            : build(asts[0])
+    }
+    function build (ast) {
+        return new Directive(name, ast, definition, compiler, el)
+    }
+}
+
+/**
  *  Add a directive instance to the correct binding & viewmodel
  */
-CompilerProto.bindDirective = function (directive) {
+CompilerProto.bindDirective = function (directive, bindingOwner) {
+
+    if (!directive) return
 
     // keep track of it so we can unbind() later
     this.dirs.push(directive)
 
     // for empty or literal directives, simply call its bind()
     // and we're done.
-    if (directive.isEmpty || !directive._update) {
+    if (directive.isEmpty || directive.isLiteral) {
         if (directive.bind) directive.bind()
         return
     }
 
     // otherwise, we got more work to do...
     var binding,
-        compiler = this,
+        compiler = bindingOwner || this,
         key      = directive.key
 
     if (directive.isExp) {
         // expression bindings are always created on current compiler
-        binding = compiler.createBinding(key, true, directive.isFn)
+        binding = compiler.createBinding(key, directive)
     } else {
         // recursively locate which compiler owns the binding
         while (compiler) {
             if (compiler.hasKey(key)) {
                 break
             } else {
-                compiler = compiler.parentCompiler
+                compiler = compiler.parent
             }
         }
         compiler = compiler || this
         binding = compiler.bindings[key] || compiler.createBinding(key)
     }
-
-    binding.instances.push(directive)
+    binding.dirs.push(directive)
     directive.binding = binding
 
+    var value = binding.val()
     // invoke bind hook if exists
     if (directive.bind) {
-        directive.bind()
+        directive.bind(value)
     }
-
     // set initial value
-    directive.update(binding.val(), true)
+    directive.update(value, true)
 }
 
 /**
  *  Create binding and attach getter/setter for a key to the viewmodel object
  */
-CompilerProto.createBinding = function (key, isExp, isFn) {
+CompilerProto.createBinding = function (key, directive) {
 
-    log('  created binding: ' + key)
+    utils.log('  created binding: ' + key)
 
     var compiler = this,
+        methods  = compiler.options.methods,
+        isExp    = directive && directive.isExp,
+        isFn     = (directive && directive.isFn) || (methods && methods[key]),
         bindings = compiler.bindings,
         computed = compiler.options.computed,
         binding  = new Binding(compiler, key, isExp, isFn)
 
     if (isExp) {
         // expression bindings are anonymous
-        compiler.defineExp(key, binding)
+        compiler.defineExp(key, binding, directive)
+    } else if (isFn) {
+        bindings[key] = binding
+        binding.value = compiler.vm[key] = methods[key]
     } else {
         bindings[key] = binding
         if (binding.root) {
@@ -15252,12 +27279,19 @@ CompilerProto.createBinding = function (key, isExp, isFn) {
             if (computed && computed[key]) {
                 // computed property
                 compiler.defineComputed(key, binding, computed[key])
-            } else {
+            } else if (key.charAt(0) !== '$') {
                 // normal property
                 compiler.defineProp(key, binding)
+            } else {
+                compiler.defineMeta(key, binding)
             }
+        } else if (computed && computed[utils.baseKey(key)]) {
+            // nested path on computed property
+            compiler.defineExp(key, binding)
         } else {
-            // ensure path in data so it can be observed
+            // ensure path in data so that computed properties that
+            // access the path don't throw an error and can collect
+            // dependencies
             Observer.ensurePath(compiler.data, key)
             var parentKey = key.slice(0, key.lastIndexOf('.'))
             if (!bindings[parentKey]) {
@@ -15275,26 +27309,25 @@ CompilerProto.createBinding = function (key, isExp, isFn) {
  *  and observe the initial value
  */
 CompilerProto.defineProp = function (key, binding) {
-    
     var compiler = this,
         data     = compiler.data,
-        ob       = data.__observer__
+        ob       = data.__emitter__
 
     // make sure the key is present in data
     // so it can be observed
-    if (!(key in data)) {
+    if (!(hasOwn.call(data, key))) {
         data[key] = undefined
     }
 
     // if the data object is already observed, but the key
     // is not observed, we need to add it to the observed keys.
-    if (ob && !(key in ob.values)) {
-        Observer.convert(data, key)
+    if (ob && !(hasOwn.call(ob.values, key))) {
+        Observer.convertKey(data, key)
     }
 
     binding.value = data[key]
 
-    Object.defineProperty(compiler.vm, key, {
+    def(compiler.vm, key, {
         get: function () {
             return compiler.data[key]
         },
@@ -15305,14 +27338,38 @@ CompilerProto.defineProp = function (key, binding) {
 }
 
 /**
+ *  Define a meta property, e.g. $index or $key,
+ *  which is bindable but only accessible on the VM,
+ *  not in the data.
+ */
+CompilerProto.defineMeta = function (key, binding) {
+    var ob = this.observer
+    binding.value = this.data[key]
+    delete this.data[key]
+    def(this.vm, key, {
+        get: function () {
+            if (Observer.shouldGet) ob.emit('get', key)
+            return binding.value
+        },
+        set: function (val) {
+            ob.emit('set', key, val)
+        }
+    })
+}
+
+/**
  *  Define an expression binding, which is essentially
  *  an anonymous computed property
  */
-CompilerProto.defineExp = function (key, binding) {
-    var getter = ExpParser.parse(key, this)
+CompilerProto.defineExp = function (key, binding, directive) {
+    var computedKey = directive && directive.computedKey,
+        exp         = computedKey ? directive.expression : key,
+        getter      = this.expCache[exp]
+    if (!getter) {
+        getter = this.expCache[exp] = ExpParser.parse(computedKey || key, this)
+    }
     if (getter) {
         this.markComputed(binding, getter)
-        this.exps.push(binding)
     }
 }
 
@@ -15321,11 +27378,10 @@ CompilerProto.defineExp = function (key, binding) {
  */
 CompilerProto.defineComputed = function (key, binding, value) {
     this.markComputed(binding, value)
-    var def = {
+    def(this.vm, key, {
         get: binding.value.$get,
         set: binding.value.$set
-    }
-    Object.defineProperty(this.vm, key, def)
+    })
 }
 
 /**
@@ -15355,14 +27411,19 @@ CompilerProto.markComputed = function (binding, value) {
 /**
  *  Retrive an option from the compiler
  */
-CompilerProto.getOption = function (type, id) {
+CompilerProto.getOption = function (type, id, silent) {
     var opts = this.options,
-        parent = this.parentCompiler
-    return (opts[type] && opts[type][id]) || (
-        parent
-            ? parent.getOption(type, id)
-            : utils[type] && utils[type][id]
-    )
+        parent = this.parent,
+        globalAssets = config.globalAssets,
+        res = (opts[type] && opts[type][id]) || (
+            parent
+                ? parent.getOption(type, id, silent)
+                : globalAssets[type] && globalAssets[type][id]
+        )
+    if (!res && !silent && typeof id === 'string') {
+        utils.warn('Unknown ' + type.slice(0, -1) + ': ' + id)
+    }
+    return res
 }
 
 /**
@@ -15378,17 +27439,48 @@ CompilerProto.execHook = function (event) {
  *  Check if a compiler's data contains a keypath
  */
 CompilerProto.hasKey = function (key) {
-    var baseKey = key.split('.')[0]
+    var baseKey = utils.baseKey(key)
     return hasOwn.call(this.data, baseKey) ||
         hasOwn.call(this.vm, baseKey)
 }
 
 /**
- *  Collect dependencies for computed properties
+ *  Do a one-time eval of a string that potentially
+ *  includes bindings. It accepts additional raw data
+ *  because we need to dynamically resolve v-component
+ *  before a childVM is even compiled...
  */
-CompilerProto.parseDeps = function () {
-    if (!this.computed.length) return
-    DepsParser.parse(this.computed)
+CompilerProto.eval = function (exp, data) {
+    var parsed = TextParser.parseAttr(exp)
+    return parsed
+        ? ExpParser.eval(parsed, this, data)
+        : exp
+}
+
+/**
+ *  Resolve a Component constructor for an element
+ *  with the data to be used
+ */
+CompilerProto.resolveComponent = function (node, data, test) {
+
+    // late require to avoid circular deps
+    ViewModel = ViewModel || require('./viewmodel')
+
+    var exp     = utils.attr(node, 'component'),
+        tagName = node.tagName,
+        id      = this.eval(exp, data),
+        tagId   = (tagName.indexOf('-') > 0 && tagName.toLowerCase()),
+        Ctor    = this.getOption('components', id || tagId, true)
+
+    if (id && !Ctor) {
+        utils.warn('Unknown component: ' + id)
+    }
+
+    return test
+        ? exp === ''
+            ? ViewModel
+            : Ctor
+        : Ctor || ViewModel
 }
 
 /**
@@ -15401,12 +27493,14 @@ CompilerProto.destroy = function () {
     if (this.destroyed) return
 
     var compiler = this,
-        i, key, dir, instances, binding,
+        i, j, key, dir, dirs, binding,
         vm          = compiler.vm,
         el          = compiler.el,
         directives  = compiler.dirs,
-        exps        = compiler.exps,
-        bindings    = compiler.bindings
+        computed    = compiler.computed,
+        bindings    = compiler.bindings,
+        children    = compiler.children,
+        parent      = compiler.parent
 
     compiler.execHook('beforeDestroy')
 
@@ -15419,22 +27513,25 @@ CompilerProto.destroy = function () {
         dir = directives[i]
         // if this directive is an instance of an external binding
         // e.g. a directive that refers to a variable on the parent VM
-        // we need to remove it from that binding's instances
+        // we need to remove it from that binding's directives
         // * empty and literal bindings do not have binding.
         if (dir.binding && dir.binding.compiler !== compiler) {
-            instances = dir.binding.instances
-            if (instances) instances.splice(instances.indexOf(dir), 1)
+            dirs = dir.binding.dirs
+            if (dirs) {
+                j = dirs.indexOf(dir)
+                if (j > -1) dirs.splice(j, 1)
+            }
         }
         dir.unbind()
     }
 
-    // unbind all expressions (anonymous bindings)
-    i = exps.length
+    // unbind all computed, anonymous bindings
+    i = computed.length
     while (i--) {
-        exps[i].unbind()
+        computed[i].unbind()
     }
 
-    // unbind all own bindings
+    // unbind all keypath bindings
     for (key in bindings) {
         binding = bindings[key]
         if (binding) {
@@ -15442,14 +27539,16 @@ CompilerProto.destroy = function () {
         }
     }
 
-    // remove self from parentCompiler
-    var parent = compiler.parentCompiler,
-        childId = compiler.childId
+    // destroy all children
+    i = children.length
+    while (i--) {
+        children[i].destroy()
+    }
+
+    // remove self from parent
     if (parent) {
-        parent.childCompilers.splice(parent.childCompilers.indexOf(compiler), 1)
-        if (childId) {
-            delete parent.vm.$[childId]
-        }
+        j = parent.children.indexOf(compiler)
+        if (j > -1) parent.children.splice(j, 1)
     }
 
     // finally remove dom element
@@ -15458,8 +27557,9 @@ CompilerProto.destroy = function () {
     } else {
         vm.$remove()
     }
+    el.vue_vm = null
 
-    this.destroyed = true
+    compiler.destroyed = true
     // emit destroy hook
     compiler.execHook('afterDestroy')
 
@@ -15474,8 +27574,8 @@ CompilerProto.destroy = function () {
  *  shorthand for getting root compiler
  */
 function getRoot (compiler) {
-    while (compiler.parentCompiler) {
-        compiler = compiler.parentCompiler
+    while (compiler.parent) {
+        compiler = compiler.parent
     }
     return compiler
 }
@@ -15486,8 +27586,14 @@ require.register("vue/src/viewmodel.js", function(exports, require, module){
 var Compiler   = require('./compiler'),
     utils      = require('./utils'),
     transition = require('./transition'),
+    Batcher    = require('./batcher'),
+    slice      = [].slice,
     def        = utils.defProtected,
-    nextTick   = utils.nextTick
+    nextTick   = utils.nextTick,
+
+    // batch $watch callbacks
+    watcherBatcher = new Batcher(),
+    watcherId      = 1
 
 /**
  *  ViewModel exposed to the user that holds data,
@@ -15504,17 +27610,22 @@ function ViewModel (options) {
 var VMProto = ViewModel.prototype
 
 /**
+ *  Convenience function to get a value from
+ *  a keypath
+ */
+def(VMProto, '$get', function (key) {
+    var val = utils.get(this, key)
+    return val === undefined && this.$parent
+        ? this.$parent.$get(key)
+        : val
+})
+
+/**
  *  Convenience function to set an actual nested value
  *  from a flat key string. Used in directives.
  */
 def(VMProto, '$set', function (key, value) {
-    var path = key.split('.'),
-        obj = getTargetVM(this, path)
-    if (!obj) return
-    for (var d = 0, l = path.length - 1; d < l; d++) {
-        obj = obj[path[d]]
-    }
-    obj[path[d]] = value
+    utils.set(this, key, value)
 })
 
 /**
@@ -15522,11 +27633,17 @@ def(VMProto, '$set', function (key, value) {
  *  fire callback with new value
  */
 def(VMProto, '$watch', function (key, callback) {
-    var self = this
+    // save a unique id for each watcher
+    var id = watcherId++,
+        self = this
     function on () {
-        var args = arguments
-        utils.nextTick(function () {
-            callback.apply(self, args)
+        var args = slice.call(arguments)
+        watcherBatcher.push({
+            id: id,
+            override: true,
+            execute: function () {
+                callback.apply(self, args)
+            }
         })
     }
     callback._fn = on
@@ -15557,7 +27674,7 @@ def(VMProto, '$destroy', function () {
  *  broadcast an event to all child VMs recursively.
  */
 def(VMProto, '$broadcast', function () {
-    var children = this.$compiler.childCompilers,
+    var children = this.$compiler.children,
         i = children.length,
         child
     while (i--) {
@@ -15573,7 +27690,7 @@ def(VMProto, '$broadcast', function () {
 def(VMProto, '$dispatch', function () {
     var compiler = this.$compiler,
         emitter = compiler.emitter,
-        parent = compiler.parentCompiler
+        parent = compiler.parent
     emitter.emit.apply(emitter, arguments)
     if (parent) {
         parent.vm.$dispatch.apply(parent.vm, arguments)
@@ -15602,37 +27719,32 @@ def(VMProto, '$appendTo', function (target, cb) {
 })
 
 def(VMProto, '$remove', function (cb) {
-    var el = this.$el,
-        parent = el.parentNode
-    if (!parent) return
+    var el = this.$el
     transition(el, -1, function () {
-        parent.removeChild(el)
+        if (el.parentNode) {
+            el.parentNode.removeChild(el)
+        }
         if (cb) nextTick(cb)
     }, this.$compiler)
 })
 
 def(VMProto, '$before', function (target, cb) {
     target = query(target)
-    var el = this.$el,
-        parent = target.parentNode
-    if (!parent) return
+    var el = this.$el
     transition(el, 1, function () {
-        parent.insertBefore(el, target)
+        target.parentNode.insertBefore(el, target)
         if (cb) nextTick(cb)
     }, this.$compiler)
 })
 
 def(VMProto, '$after', function (target, cb) {
     target = query(target)
-    var el = this.$el,
-        parent = target.parentNode,
-        next = target.nextSibling
-    if (!parent) return
+    var el = this.$el
     transition(el, 1, function () {
-        if (next) {
-            parent.insertBefore(el, next)
+        if (target.nextSibling) {
+            target.parentNode.insertBefore(el, target.nextSibling)
         } else {
-            parent.appendChild(el)
+            target.parentNode.appendChild(el)
         }
         if (cb) nextTick(cb)
     }, this.$compiler)
@@ -15644,23 +27756,12 @@ function query (el) {
         : el
 }
 
-/**
- *  If a VM doesn't contain a path, go up the prototype chain
- *  to locate the ancestor that has it.
- */
-function getTargetVM (vm, path) {
-    var baseKey = path[0],
-        binding = vm.$compiler.bindings[baseKey]
-    return binding
-        ? binding.compiler.vm
-        : null
-}
-
 module.exports = ViewModel
 });
 require.register("vue/src/binding.js", function(exports, require, module){
-var batcher = require('./batcher'),
-    id = 0
+var Batcher        = require('./batcher'),
+    bindingBatcher = new Batcher(),
+    bindingId      = 1
 
 /**
  *  Binding class.
@@ -15670,14 +27771,14 @@ var batcher = require('./batcher'),
  *  and multiple computed property dependents
  */
 function Binding (compiler, key, isExp, isFn) {
-    this.id = id++
+    this.id = bindingId++
     this.value = undefined
     this.isExp = !!isExp
     this.isFn = isFn
     this.root = !this.isExp && key.indexOf('.') === -1
     this.compiler = compiler
     this.key = key
-    this.instances = []
+    this.dirs = []
     this.subs = []
     this.deps = []
     this.unbound = false
@@ -15692,17 +27793,27 @@ BindingProto.update = function (value) {
     if (!this.isComputed || this.isFn) {
         this.value = value
     }
-    batcher.queue(this)
+    if (this.dirs.length || this.subs.length) {
+        var self = this
+        bindingBatcher.push({
+            id: this.id,
+            execute: function () {
+                if (!self.unbound) {
+                    self._update()
+                }
+            }
+        })
+    }
 }
 
 /**
- *  Actually update the instances.
+ *  Actually update the directives.
  */
 BindingProto._update = function () {
-    var i = this.instances.length,
+    var i = this.dirs.length,
         value = this.val()
     while (i--) {
-        this.instances[i].update(value)
+        this.dirs[i].update(value)
     }
     this.pub()
 }
@@ -15737,15 +27848,16 @@ BindingProto.unbind = function () {
     // the batcher's flush queue when its owner
     // compiler has already been destroyed.
     this.unbound = true
-    var i = this.instances.length
+    var i = this.dirs.length
     while (i--) {
-        this.instances[i].unbind()
+        this.dirs[i].unbind()
     }
     i = this.deps.length
     var subs
     while (i--) {
         subs = this.deps[i].subs
-        subs.splice(subs.indexOf(this), 1)
+        var j = subs.indexOf(this)
+        if (j > -1) subs.splice(j, 1)
     }
 }
 
@@ -15756,106 +27868,222 @@ require.register("vue/src/observer.js", function(exports, require, module){
 
 var Emitter  = require('./emitter'),
     utils    = require('./utils'),
-
     // cache methods
-    typeOf   = utils.typeOf,
     def      = utils.defProtected,
-    slice    = Array.prototype.slice,
-
-    // types
-    OBJECT   = 'Object',
-    ARRAY    = 'Array',
-
-    // Array mutation methods to wrap
-    methods  = ['push','pop','shift','unshift','splice','sort','reverse'],
-
+    isObject = utils.isObject,
+    isArray  = Array.isArray,
+    hasOwn   = ({}).hasOwnProperty,
+    oDef     = Object.defineProperty,
+    slice    = [].slice,
     // fix for IE + __proto__ problem
     // define methods as inenumerable if __proto__ is present,
     // otherwise enumerable so we can loop through and manually
     // attach to array instances
-    hasProto = ({}).__proto__,
+    hasProto = ({}).__proto__
 
-    // lazy load
-    ViewModel
+// Array Mutation Handlers & Augmentations ------------------------------------
 
 // The proxy prototype to replace the __proto__ of
 // an observed array
 var ArrayProxy = Object.create(Array.prototype)
 
-// Define mutation interceptors so we can emit the mutation info
-methods.forEach(function (method) {
-    def(ArrayProxy, method, function () {
-        var result = Array.prototype[method].apply(this, arguments)
-        this.__observer__.emit('mutate', this.__observer__.path, this, {
-            method: method,
-            args: slice.call(arguments),
-            result: result
-        })
-        return result
-    }, !hasProto)
-})
-
-/**
- *  Convenience method to remove an element in an Array
- *  This will be attached to observed Array instances
- */
-function removeElement (index) {
-    if (typeof index === 'function') {
-        var i = this.length,
-            removed = []
-        while (i--) {
-            if (index(this[i])) {
-                removed.push(this.splice(i, 1)[0])
-            }
-        }
-        return removed.reverse()
-    } else {
-        if (typeof index !== 'number') {
-            index = this.indexOf(index)
-        }
-        if (index > -1) {
-            return this.splice(index, 1)[0]
-        }
-    }
-}
-
-/**
- *  Convenience method to replace an element in an Array
- *  This will be attached to observed Array instances
- */
-function replaceElement (index, data) {
-    if (typeof index === 'function') {
-        var i = this.length,
-            replaced = [],
-            replacer
-        while (i--) {
-            replacer = index(this[i])
-            if (replacer !== undefined) {
-                replaced.push(this.splice(i, 1, replacer)[0])
-            }
-        }
-        return replaced.reverse()
-    } else {
-        if (typeof index !== 'number') {
-            index = this.indexOf(index)
-        }
-        if (index > -1) {
-            return this.splice(index, 1, data)[0]
-        }
-    }
-}
+// intercept mutation methods
+;[
+    'push',
+    'pop',
+    'shift',
+    'unshift',
+    'splice',
+    'sort',
+    'reverse'
+].forEach(watchMutation)
 
 // Augment the ArrayProxy with convenience methods
-def(ArrayProxy, 'remove', removeElement, !hasProto)
-def(ArrayProxy, 'set', replaceElement, !hasProto)
-def(ArrayProxy, 'replace', replaceElement, !hasProto)
+def(ArrayProxy, '$set', function (index, data) {
+    return this.splice(index, 1, data)[0]
+}, !hasProto)
+
+def(ArrayProxy, '$remove', function (index) {
+    if (typeof index !== 'number') {
+        index = this.indexOf(index)
+    }
+    if (index > -1) {
+        return this.splice(index, 1)[0]
+    }
+}, !hasProto)
+
+/**
+ *  Intercep a mutation event so we can emit the mutation info.
+ *  we also analyze what elements are added/removed and link/unlink
+ *  them with the parent Array.
+ */
+function watchMutation (method) {
+    def(ArrayProxy, method, function () {
+
+        var args = slice.call(arguments),
+            result = Array.prototype[method].apply(this, args),
+            inserted, removed
+
+        // determine new / removed elements
+        if (method === 'push' || method === 'unshift') {
+            inserted = args
+        } else if (method === 'pop' || method === 'shift') {
+            removed = [result]
+        } else if (method === 'splice') {
+            inserted = args.slice(2)
+            removed = result
+        }
+        
+        // link & unlink
+        linkArrayElements(this, inserted)
+        unlinkArrayElements(this, removed)
+
+        // emit the mutation event
+        this.__emitter__.emit('mutate', '', this, {
+            method   : method,
+            args     : args,
+            result   : result,
+            inserted : inserted,
+            removed  : removed
+        })
+
+        return result
+        
+    }, !hasProto)
+}
+
+/**
+ *  Link new elements to an Array, so when they change
+ *  and emit events, the owner Array can be notified.
+ */
+function linkArrayElements (arr, items) {
+    if (items) {
+        var i = items.length, item, owners
+        while (i--) {
+            item = items[i]
+            if (isWatchable(item)) {
+                // if object is not converted for observing
+                // convert it...
+                if (!item.__emitter__) {
+                    convert(item)
+                    watch(item)
+                }
+                owners = item.__emitter__.owners
+                if (owners.indexOf(arr) < 0) {
+                    owners.push(arr)
+                }
+            }
+        }
+    }
+}
+
+/**
+ *  Unlink removed elements from the ex-owner Array.
+ */
+function unlinkArrayElements (arr, items) {
+    if (items) {
+        var i = items.length, item
+        while (i--) {
+            item = items[i]
+            if (item && item.__emitter__) {
+                var owners = item.__emitter__.owners
+                if (owners) owners.splice(owners.indexOf(arr))
+            }
+        }
+    }
+}
+
+// Object add/delete key augmentation -----------------------------------------
+
+var ObjProxy = Object.create(Object.prototype)
+
+def(ObjProxy, '$add', function (key, val) {
+    if (hasOwn.call(this, key)) return
+    this[key] = val
+    convertKey(this, key)
+    // emit a propagating set event
+    this.__emitter__.emit('set', key, val, true)
+}, !hasProto)
+
+def(ObjProxy, '$delete', function (key) {
+    if (!(hasOwn.call(this, key))) return
+    // trigger set events
+    this[key] = undefined
+    delete this[key]
+    this.__emitter__.emit('delete', key)
+}, !hasProto)
+
+// Watch Helpers --------------------------------------------------------------
+
+/**
+ *  Check if a value is watchable
+ */
+function isWatchable (obj) {
+    return typeof obj === 'object' && obj && !obj.$compiler
+}
+
+/**
+ *  Convert an Object/Array to give it a change emitter.
+ */
+function convert (obj) {
+    if (obj.__emitter__) return true
+    var emitter = new Emitter()
+    def(obj, '__emitter__', emitter)
+    emitter
+        .on('set', function (key, val, propagate) {
+            if (propagate) propagateChange(obj)
+        })
+        .on('mutate', function () {
+            propagateChange(obj)
+        })
+    emitter.values = utils.hash()
+    emitter.owners = []
+    return false
+}
+
+/**
+ *  Propagate an array element's change to its owner arrays
+ */
+function propagateChange (obj) {
+    var owners = obj.__emitter__.owners,
+        i = owners.length
+    while (i--) {
+        owners[i].__emitter__.emit('set', '', '', true)
+    }
+}
+
+/**
+ *  Watch target based on its type
+ */
+function watch (obj) {
+    if (isArray(obj)) {
+        watchArray(obj)
+    } else {
+        watchObject(obj)
+    }
+}
+
+/**
+ *  Augment target objects with modified
+ *  methods
+ */
+function augment (target, src) {
+    if (hasProto) {
+        target.__proto__ = src
+    } else {
+        for (var key in src) {
+            def(target, key, src[key])
+        }
+    }
+}
 
 /**
  *  Watch an Object, recursive.
  */
 function watchObject (obj) {
+    augment(obj, ObjProxy)
     for (var key in obj) {
-        convert(obj, key)
+        convertKey(obj, key)
     }
 }
 
@@ -15863,20 +28091,9 @@ function watchObject (obj) {
  *  Watch an Array, overload mutation methods
  *  and add augmentations by intercepting the prototype chain
  */
-function watchArray (arr, path) {
-    var observer = arr.__observer__
-    if (!observer) {
-        observer = new Emitter()
-        def(arr, '__observer__', observer)
-    }
-    observer.path = path
-    if (hasProto) {
-        arr.__proto__ = ArrayProxy
-    } else {
-        for (var key in ArrayProxy) {
-            def(arr, key, ArrayProxy[key])
-        }
-    }
+function watchArray (arr) {
+    augment(arr, ArrayProxy)
+    linkArrayElements(arr, arr)
 }
 
 /**
@@ -15884,49 +28101,48 @@ function watchArray (arr, path) {
  *  so it emits get/set events.
  *  Then watch the value itself.
  */
-function convert (obj, key) {
+function convertKey (obj, key) {
     var keyPrefix = key.charAt(0)
-    if ((keyPrefix === '$' || keyPrefix === '_') && key !== '$index') {
+    if (keyPrefix === '$' || keyPrefix === '_') {
         return
     }
     // emit set on bind
     // this means when an object is observed it will emit
     // a first batch of set events.
-    var observer = obj.__observer__,
-        values   = observer.values,
-        val      = values[key] = obj[key]
-    observer.emit('set', key, val)
-    if (Array.isArray(val)) {
-        observer.emit('set', key + '.length', val.length)
-    }
-    Object.defineProperty(obj, key, {
+    var emitter = obj.__emitter__,
+        values  = emitter.values
+
+    init(obj[key])
+
+    oDef(obj, key, {
+        enumerable: true,
+        configurable: true,
         get: function () {
             var value = values[key]
             // only emit get on tip values
-            if (pub.shouldGet && typeOf(value) !== OBJECT) {
-                observer.emit('get', key)
+            if (pub.shouldGet) {
+                emitter.emit('get', key)
             }
             return value
         },
         set: function (newVal) {
             var oldVal = values[key]
-            unobserve(oldVal, key, observer)
-            values[key] = newVal
+            unobserve(oldVal, key, emitter)
             copyPaths(newVal, oldVal)
-            observer.emit('set', key, newVal)
-            observe(newVal, key, observer)
+            // an immediate property should notify its parent
+            // to emit set for itself too
+            init(newVal, true)
         }
     })
-    observe(val, key, observer)
-}
 
-/**
- *  Check if a value is watchable
- */
-function isWatchable (obj) {
-    ViewModel = ViewModel || require('./viewmodel')
-    var type = typeOf(obj)
-    return (type === OBJECT || type === ARRAY) && !(obj instanceof ViewModel)
+    function init (val, propagate) {
+        values[key] = val
+        emitter.emit('set', key, val, propagate)
+        if (isArray(val)) {
+            emitter.emit('set', key + '.length', val.length, propagate)
+        }
+        observe(val, key, emitter)
+    }
 }
 
 /**
@@ -15936,11 +28152,11 @@ function isWatchable (obj) {
  *  all of its properties.
  */
 function emitSet (obj) {
-    var type = typeOf(obj),
-        emitter = obj && obj.__observer__
-    if (type === ARRAY) {
+    var emitter = obj && obj.__emitter__
+    if (!emitter) return
+    if (isArray(obj)) {
         emitter.emit('set', 'length', obj.length)
-    } else if (type === OBJECT) {
+    } else {
         var key, val
         for (key in obj) {
             val = obj[key]
@@ -15957,19 +28173,18 @@ function emitSet (obj) {
  *  emit a set event with undefined value.
  */
 function copyPaths (newObj, oldObj) {
-    if (typeOf(oldObj) !== OBJECT || typeOf(newObj) !== OBJECT) {
+    if (!isObject(newObj) || !isObject(oldObj)) {
         return
     }
-    var path, type, oldVal, newVal
+    var path, oldVal, newVal
     for (path in oldObj) {
-        if (!(path in newObj)) {
+        if (!(hasOwn.call(newObj, path))) {
             oldVal = oldObj[path]
-            type = typeOf(oldVal)
-            if (type === OBJECT) {
+            if (isArray(oldVal)) {
+                newObj[path] = []
+            } else if (isObject(oldVal)) {
                 newVal = newObj[path] = {}
                 copyPaths(newVal, oldVal)
-            } else if (type === ARRAY) {
-                newObj[path] = []
             } else {
                 newObj[path] = undefined
             }
@@ -15987,39 +28202,49 @@ function ensurePath (obj, key) {
         sec = path[i]
         if (!obj[sec]) {
             obj[sec] = {}
-            if (obj.__observer__) convert(obj, sec)
+            if (obj.__emitter__) convertKey(obj, sec)
         }
         obj = obj[sec]
     }
-    if (typeOf(obj) === OBJECT) {
+    if (isObject(obj)) {
         sec = path[i]
-        if (!(sec in obj)) {
+        if (!(hasOwn.call(obj, sec))) {
             obj[sec] = undefined
-            if (obj.__observer__) convert(obj, sec)
+            if (obj.__emitter__) convertKey(obj, sec)
         }
     }
 }
+
+// Main API Methods -----------------------------------------------------------
 
 /**
  *  Observe an object with a given path,
  *  and proxy get/set/mutate events to the provided observer.
  */
 function observe (obj, rawPath, observer) {
+
     if (!isWatchable(obj)) return
+
     var path = rawPath ? rawPath + '.' : '',
-        ob, alreadyConverted = !!obj.__observer__
-    if (!alreadyConverted) {
-        def(obj, '__observer__', new Emitter())
-    }
-    ob = obj.__observer__
-    ob.values = ob.values || utils.hash()
+        alreadyConverted = convert(obj),
+        emitter = obj.__emitter__
+
+    // setup proxy listeners on the parent observer.
+    // we need to keep reference to them so that they
+    // can be removed when the object is un-observed.
     observer.proxies = observer.proxies || {}
     var proxies = observer.proxies[path] = {
         get: function (key) {
             observer.emit('get', path + key)
         },
-        set: function (key, val) {
-            observer.emit('set', path + key, val)
+        set: function (key, val, propagate) {
+            if (key) observer.emit('set', path + key, val)
+            // also notify observer that the object itself changed
+            // but only do so when it's a immediate property. this
+            // avoids duplicate event firing.
+            if (rawPath && propagate) {
+                observer.emit('set', rawPath, obj, true)
+            }
         },
         mutate: function (key, val, mutation) {
             // if the Array is a root value
@@ -16033,19 +28258,20 @@ function observe (obj, rawPath, observer) {
             }
         }
     }
-    ob
+
+    // attach the listeners to the child observer.
+    // now all the events will propagate upwards.
+    emitter
         .on('get', proxies.get)
         .on('set', proxies.set)
         .on('mutate', proxies.mutate)
+
     if (alreadyConverted) {
+        // for objects that have already been converted,
+        // emit set events for everything inside
         emitSet(obj)
     } else {
-        var type = typeOf(obj)
-        if (type === OBJECT) {
-            watchObject(obj)
-        } else if (type === ARRAY) {
-            watchArray(obj)
-        }
+        watch(obj)
     }
 }
 
@@ -16053,16 +28279,24 @@ function observe (obj, rawPath, observer) {
  *  Cancel observation, turn off the listeners.
  */
 function unobserve (obj, path, observer) {
-    if (!obj || !obj.__observer__) return
+
+    if (!obj || !obj.__emitter__) return
+
     path = path ? path + '.' : ''
     var proxies = observer.proxies[path]
     if (!proxies) return
-    obj.__observer__
+
+    // turn off listeners
+    obj.__emitter__
         .off('get', proxies.get)
         .off('set', proxies.set)
         .off('mutate', proxies.mutate)
+
+    // remove reference
     observer.proxies[path] = null
 }
+
+// Expose API -----------------------------------------------------------------
 
 var pub = module.exports = {
 
@@ -16073,42 +28307,37 @@ var pub = module.exports = {
     observe     : observe,
     unobserve   : unobserve,
     ensurePath  : ensurePath,
-    convert     : convert,
     copyPaths   : copyPaths,
-    watchArray  : watchArray
+    watch       : watch,
+    convert     : convert,
+    convertKey  : convertKey
 }
 });
 require.register("vue/src/directive.js", function(exports, require, module){
-var utils      = require('./utils'),
-    directives = require('./directives'),
-    filters    = require('./filters'),
-
-    // Regexes!
-
-    // regex to split multiple directive expressions
-    // split by commas, but ignore commas within quotes, parens and escapes.
-    SPLIT_RE        = /(?:['"](?:\\.|[^'"])*['"]|\((?:\\.|[^\)])*\)|\\.|[^,])+/g,
-
-    // match up to the first single pipe, ignore those within quotes.
-    KEY_RE          = /^(?:['"](?:\\.|[^'"])*['"]|\\.|[^\|]|\|\|)+/,
-
-    ARG_RE          = /^([\w-$ ]+):(.+)$/,
-    FILTERS_RE      = /\|[^\|]+/g,
-    FILTER_TOKEN_RE = /[^\s']+|'[^']+'/g,
+var dirId           = 1,
+    ARG_RE          = /^[\w\$-]+$/,
+    FILTER_TOKEN_RE = /[^\s'"]+|'[^']+'|"[^"]+"/g,
     NESTING_RE      = /^\$(parent|root)\./,
-    SINGLE_VAR_RE   = /^[\w\.$]+$/
+    SINGLE_VAR_RE   = /^[\w\.$]+$/,
+    QUOTE_RE        = /"/g
 
 /**
  *  Directive class
  *  represents a single directive instance in the DOM
  */
-function Directive (definition, expression, rawKey, compiler, node) {
+function Directive (name, ast, definition, compiler, el) {
 
-    this.compiler = compiler
-    this.vm       = compiler.vm
-    this.el       = node
+    this.id             = dirId++
+    this.name           = name
+    this.compiler       = compiler
+    this.vm             = compiler.vm
+    this.el             = el
+    this.computeFilters = false
+    this.key            = ast.key
+    this.arg            = ast.arg
+    this.expression     = ast.expression
 
-    var isEmpty  = expression === ''
+    var isEmpty = this.expression === ''
 
     // mix in properties from the directive definition
     if (typeof definition === 'function') {
@@ -16124,76 +28353,51 @@ function Directive (definition, expression, rawKey, compiler, node) {
     }
 
     // empty expression, we're done.
-    if (isEmpty) {
+    if (isEmpty || this.isEmpty) {
         this.isEmpty = true
         return
     }
 
-    this.expression = expression.trim()
-    this.rawKey     = rawKey
-    
-    parseKey(this, rawKey)
+    this.expression = (
+        this.isLiteral
+            ? compiler.eval(this.expression)
+            : this.expression
+    ).trim()
 
-    this.isExp = !SINGLE_VAR_RE.test(this.key) || NESTING_RE.test(this.key)
-    
-    var filterExps = this.expression.slice(rawKey.length).match(FILTERS_RE)
-    if (filterExps) {
+    var filters = ast.filters,
+        filter, fn, i, l, computed
+    if (filters) {
         this.filters = []
-        for (var i = 0, l = filterExps.length, filter; i < l; i++) {
-            filter = parseFilter(filterExps[i], this.compiler)
-            if (filter) this.filters.push(filter)
+        for (i = 0, l = filters.length; i < l; i++) {
+            filter = filters[i]
+            fn = this.compiler.getOption('filters', filter.name)
+            if (fn) {
+                filter.apply = fn
+                this.filters.push(filter)
+                if (fn.computed) {
+                    computed = true
+                }
+            }
         }
-        if (!this.filters.length) this.filters = null
-    } else {
+    }
+
+    if (!this.filters || !this.filters.length) {
         this.filters = null
     }
+
+    if (computed) {
+        this.computedKey = Directive.inlineFilters(this.key, this.filters)
+        this.filters = null
+    }
+
+    this.isExp =
+        computed ||
+        !SINGLE_VAR_RE.test(this.key) ||
+        NESTING_RE.test(this.key)
+
 }
 
 var DirProto = Directive.prototype
-
-/**
- *  parse a key, extract argument and nesting/root info
- */
-function parseKey (dir, rawKey) {
-    var key = rawKey
-    if (rawKey.indexOf(':') > -1) {
-        var argMatch = rawKey.match(ARG_RE)
-        key = argMatch
-            ? argMatch[2].trim()
-            : key
-        dir.arg = argMatch
-            ? argMatch[1].trim()
-            : null
-    }
-    dir.key = key
-}
-
-/**
- *  parse a filter expression
- */
-function parseFilter (filter, compiler) {
-
-    var tokens = filter.slice(1).match(FILTER_TOKEN_RE)
-    if (!tokens) return
-    tokens = tokens.map(function (token) {
-        return token.replace(/'/g, '').trim()
-    })
-
-    var name = tokens[0],
-        apply = compiler.getOption('filters', name) || filters[name]
-    if (!apply) {
-        utils.warn('Unknown filter: ' + name)
-        return
-    }
-
-    return {
-        name  : name,
-        apply : apply,
-        args  : tokens.length > 1
-                ? tokens.slice(1)
-                : null
-    }
-}
 
 /**
  *  called when a new value is set 
@@ -16201,14 +28405,16 @@ function parseFilter (filter, compiler) {
  *  during initialization.
  */
 DirProto.update = function (value, init) {
-    if (!init && value === this.value) return
-    this.value = value
-    if (this._update) {
-        this._update(
-            this.filters
-                ? this.applyFilters(value)
-                : value
-        )
+    if (init || value !== this.value || (value && typeof value === 'object')) {
+        this.value = value
+        if (this._update) {
+            this._update(
+                this.filters && !this.computeFilters
+                    ? this.applyFilters(value)
+                    : value,
+                init
+            )
+        }
     }
 }
 
@@ -16219,7 +28425,7 @@ DirProto.applyFilters = function (value) {
     var filtered = value, filter
     for (var i = 0, l = this.filters.length; i < l; i++) {
         filter = this.filters[i]
-        filtered = filter.apply.call(this.vm, filtered, filter.args)
+        filtered = filter.apply.apply(this.vm, [filtered].concat(filter.args))
     }
     return filtered
 }
@@ -16234,51 +28440,147 @@ DirProto.unbind = function () {
     this.vm = this.el = this.binding = this.compiler = null
 }
 
-// exposed methods ------------------------------------------------------------
+// Exposed static methods -----------------------------------------------------
 
 /**
- *  split a unquoted-comma separated expression into
- *  multiple clauses
+ *  Parse a directive string into an Array of
+ *  AST-like objects representing directives
  */
-Directive.split = function (exp) {
-    return exp.indexOf(',') > -1
-        ? exp.match(SPLIT_RE) || ['']
-        : [exp]
+Directive.parse = function (str) {
+
+    var inSingle = false,
+        inDouble = false,
+        curly    = 0,
+        square   = 0,
+        paren    = 0,
+        begin    = 0,
+        argIndex = 0,
+        dirs     = [],
+        dir      = {},
+        lastFilterIndex = 0,
+        arg
+
+    for (var c, i = 0, l = str.length; i < l; i++) {
+        c = str.charAt(i)
+        if (inSingle) {
+            // check single quote
+            if (c === "'") inSingle = !inSingle
+        } else if (inDouble) {
+            // check double quote
+            if (c === '"') inDouble = !inDouble
+        } else if (c === ',' && !paren && !curly && !square) {
+            // reached the end of a directive
+            pushDir()
+            // reset & skip the comma
+            dir = {}
+            begin = argIndex = lastFilterIndex = i + 1
+        } else if (c === ':' && !dir.key && !dir.arg) {
+            // argument
+            arg = str.slice(begin, i).trim()
+            if (ARG_RE.test(arg)) {
+                argIndex = i + 1
+                dir.arg = str.slice(begin, i).trim()
+            }
+        } else if (c === '|' && str.charAt(i + 1) !== '|' && str.charAt(i - 1) !== '|') {
+            if (dir.key === undefined) {
+                // first filter, end of key
+                lastFilterIndex = i + 1
+                dir.key = str.slice(argIndex, i).trim()
+            } else {
+                // already has filter
+                pushFilter()
+            }
+        } else if (c === '"') {
+            inDouble = true
+        } else if (c === "'") {
+            inSingle = true
+        } else if (c === '(') {
+            paren++
+        } else if (c === ')') {
+            paren--
+        } else if (c === '[') {
+            square++
+        } else if (c === ']') {
+            square--
+        } else if (c === '{') {
+            curly++
+        } else if (c === '}') {
+            curly--
+        }
+    }
+    if (i === 0 || begin !== i) {
+        pushDir()
+    }
+
+    function pushDir () {
+        dir.expression = str.slice(begin, i).trim()
+        if (dir.key === undefined) {
+            dir.key = str.slice(argIndex, i).trim()
+        } else if (lastFilterIndex !== begin) {
+            pushFilter()
+        }
+        if (i === 0 || dir.key) {
+            dirs.push(dir)
+        }
+    }
+
+    function pushFilter () {
+        var exp = str.slice(lastFilterIndex, i).trim(),
+            filter
+        if (exp) {
+            filter = {}
+            var tokens = exp.match(FILTER_TOKEN_RE)
+            filter.name = tokens[0]
+            filter.args = tokens.length > 1 ? tokens.slice(1) : null
+        }
+        if (filter) {
+            (dir.filters = dir.filters || []).push(filter)
+        }
+        lastFilterIndex = i + 1
+    }
+
+    return dirs
 }
 
 /**
- *  make sure the directive and expression is valid
- *  before we create an instance
+ *  Inline computed filters so they become part
+ *  of the expression
  */
-Directive.parse = function (dirname, expression, compiler, node) {
-
-    var dir = compiler.getOption('directives', dirname) || directives[dirname]
-    if (!dir) return utils.warn('unknown directive: ' + dirname)
-
-    var rawKey
-    if (expression.indexOf('|') > -1) {
-        var keyMatch = expression.match(KEY_RE)
-        if (keyMatch) {
-            rawKey = keyMatch[0].trim()
-        }
-    } else {
-        rawKey = expression.trim()
+Directive.inlineFilters = function (key, filters) {
+    var args, filter
+    for (var i = 0, l = filters.length; i < l; i++) {
+        filter = filters[i]
+        args = filter.args
+            ? ',"' + filter.args.map(escapeQuote).join('","') + '"'
+            : ''
+        key = 'this.$compiler.getOption("filters", "' +
+                filter.name +
+            '").call(this,' +
+                key + args +
+            ')'
     }
-    
-    // have a valid raw key, or be an empty directive
-    return (rawKey || expression === '')
-        ? new Directive(dir, expression, rawKey, compiler, node)
-        : utils.warn('invalid directive expression: ' + expression)
+    return key
+}
+
+/**
+ *  Convert double quotes to single quotes
+ *  so they don't mess up the generated function body
+ */
+function escapeQuote (v) {
+    return v.indexOf('"') > -1
+        ? v.replace(QUOTE_RE, '\'')
+        : v
 }
 
 module.exports = Directive
 });
 require.register("vue/src/exp-parser.js", function(exports, require, module){
 var utils           = require('./utils'),
-    stringSaveRE    = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,
-    stringRestoreRE = /"(\d+)"/g,
-    constructorRE   = new RegExp('constructor'.split('').join('[\'"+, ]*')),
-    unicodeRE       = /\\u\d\d\d\d/
+    STR_SAVE_RE     = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,
+    STR_RESTORE_RE  = /"(\d+)"/g,
+    NEWLINE_RE      = /\n/g,
+    CTOR_RE         = new RegExp('constructor'.split('').join('[\'"+, ]*')),
+    UNICODE_RE      = /\\u\d\d\d\d/
 
 // Variable extraction scooped from https://github.com/RubyLouvre/avalon
 
@@ -16329,15 +28631,21 @@ function getVariables (code) {
  *  key. It then creates any missing bindings on the
  *  final resolved vm.
  */
-function getRel (path, compiler) {
+function traceScope (path, compiler, data) {
     var rel  = '',
         dist = 0,
         self = compiler
+
+    if (data && utils.get(data, path) !== undefined) {
+        // hack: temporarily attached data
+        return '$temp.'
+    }
+
     while (compiler) {
         if (compiler.hasKey(path)) {
             break
         } else {
-            compiler = compiler.parentCompiler
+            compiler = compiler.parent
             dist++
         }
     }
@@ -16360,12 +28668,11 @@ function getRel (path, compiler) {
  *  to the VM's data it's actually properly sandboxed
  */
 function makeGetter (exp, raw) {
-    /* jshint evil: true */
     var fn
     try {
         fn = new Function(exp)
     } catch (e) {
-        utils.warn('Invalid expression: ' + raw)
+        utils.warn('Error parsing expression: ' + raw)
     }
     return fn
 }
@@ -16379,85 +28686,130 @@ function escapeDollar (v) {
         : v
 }
 
-module.exports = {
-
-    /**
-     *  Parse and return an anonymous computed property getter function
-     *  from an arbitrary expression, together with a list of paths to be
-     *  created as bindings.
-     */
-    parse: function (exp, compiler) {
-        // unicode and 'constructor' are not allowed for XSS security.
-        if (unicodeRE.test(exp) || constructorRE.test(exp)) {
-            utils.warn('Unsafe expression: ' + exp)
-            return function () {}
-        }
-        // extract variable names
-        var vars = getVariables(exp)
-        if (!vars.length) {
-            return makeGetter('return ' + exp, exp)
-        }
-        vars = utils.unique(vars)
-        var accessors = '',
-            has       = utils.hash(),
-            strings   = [],
-            // construct a regex to extract all valid variable paths
-            // ones that begin with "$" are particularly tricky
-            // because we can't use \b for them
-            pathRE = new RegExp(
-                "[^$\\w\\.](" +
-                vars.map(escapeDollar).join('|') +
-                ")[$\\w\\.]*\\b", 'g'
-            ),
-            body = ('return ' + exp)
-                .replace(stringSaveRE, saveStrings)
-                .replace(pathRE, replacePath)
-                .replace(stringRestoreRE, restoreStrings)
-        body = accessors + body
-
-        function saveStrings (str) {
-            var i = strings.length
-            strings[i] = str
-            return '"' + i + '"'
-        }
-
-        function replacePath (path) {
-            // keep track of the first char
-            var c = path.charAt(0)
-            path = path.slice(1)
-            var val = 'this.' + getRel(path, compiler) + path
-            if (!has[path]) {
-                accessors += val + ';'
-                has[path] = 1
-            }
-            // don't forget to put that first char back
-            return c + val
-        }
-
-        function restoreStrings (str, i) {
-            return strings[i]
-        }
-
-        return makeGetter(body, exp)
+/**
+ *  Parse and return an anonymous computed property getter function
+ *  from an arbitrary expression, together with a list of paths to be
+ *  created as bindings.
+ */
+exports.parse = function (exp, compiler, data) {
+    // unicode and 'constructor' are not allowed for XSS security.
+    if (UNICODE_RE.test(exp) || CTOR_RE.test(exp)) {
+        utils.warn('Unsafe expression: ' + exp)
+        return
     }
+    // extract variable names
+    var vars = getVariables(exp)
+    if (!vars.length) {
+        return makeGetter('return ' + exp, exp)
+    }
+    vars = utils.unique(vars)
+
+    var accessors = '',
+        has       = utils.hash(),
+        strings   = [],
+        // construct a regex to extract all valid variable paths
+        // ones that begin with "$" are particularly tricky
+        // because we can't use \b for them
+        pathRE = new RegExp(
+            "[^$\\w\\.](" +
+            vars.map(escapeDollar).join('|') +
+            ")[$\\w\\.]*\\b", 'g'
+        ),
+        body = (' ' + exp)
+            .replace(STR_SAVE_RE, saveStrings)
+            .replace(pathRE, replacePath)
+            .replace(STR_RESTORE_RE, restoreStrings)
+
+    body = accessors + 'return ' + body
+
+    function saveStrings (str) {
+        var i = strings.length
+        // escape newlines in strings so the expression
+        // can be correctly evaluated
+        strings[i] = str.replace(NEWLINE_RE, '\\n')
+        return '"' + i + '"'
+    }
+
+    function replacePath (path) {
+        // keep track of the first char
+        var c = path.charAt(0)
+        path = path.slice(1)
+        var val = 'this.' + traceScope(path, compiler, data) + path
+        if (!has[path]) {
+            accessors += val + ';'
+            has[path] = 1
+        }
+        // don't forget to put that first char back
+        return c + val
+    }
+
+    function restoreStrings (str, i) {
+        return strings[i]
+    }
+
+    return makeGetter(body, exp)
+}
+
+/**
+ *  Evaluate an expression in the context of a compiler.
+ *  Accepts additional data.
+ */
+exports.eval = function (exp, compiler, data) {
+    var getter = exports.parse(exp, compiler, data), res
+    if (getter) {
+        // hack: temporarily attach the additional data so
+        // it can be accessed in the getter
+        compiler.vm.$temp = data
+        res = getter.call(compiler.vm)
+        delete compiler.vm.$temp
+    }
+    return res
 }
 });
 require.register("vue/src/text-parser.js", function(exports, require, module){
-var BINDING_RE = /{{{?([^{}]+?)}?}}/,
-    TRIPLE_RE = /{{{[^{}]+}}}/
+var openChar        = '{',
+    endChar         = '}',
+    ESCAPE_RE       = /[-.*+?^${}()|[\]\/\\]/g,
+    BINDING_RE      = buildInterpolationRegex(),
+    // lazy require
+    Directive
 
-/**
+function buildInterpolationRegex () {
+    var open = escapeRegex(openChar),
+        end  = escapeRegex(endChar)
+    return new RegExp(open + open + open + '?(.+?)' + end + '?' + end + end)
+}
+
+function escapeRegex (str) {
+    return str.replace(ESCAPE_RE, '\\$&')
+}
+
+function setDelimiters (delimiters) {
+    exports.delimiters = delimiters
+    openChar = delimiters[0]
+    endChar = delimiters[1]
+    BINDING_RE = buildInterpolationRegex()
+}
+
+/** 
  *  Parse a piece of text, return an array of tokens
+ *  token types:
+ *  1. plain string
+ *  2. object with key = binding key
+ *  3. object with key & html = true
  */
 function parse (text) {
     if (!BINDING_RE.test(text)) return null
-    var m, i, token, tokens = []
+    var m, i, token, match, tokens = []
     /* jshint boss: true */
     while (m = text.match(BINDING_RE)) {
         i = m.index
         if (i > 0) tokens.push(text.slice(0, i))
         token = { key: m[1].trim() }
-        if (TRIPLE_RE.test(m[0])) token.html = true
+        match = m[0]
+        token.html =
+            match.charAt(2) === openChar &&
+            match.charAt(match.length - 3) === endChar
         tokens.push(token)
         text = text.slice(i + m[0].length)
     }
@@ -16468,20 +28820,48 @@ function parse (text) {
 /**
  *  Parse an attribute value with possible interpolation tags
  *  return a Directive-friendly expression
+ *
+ *  e.g.  a {{b}} c  =>  "a " + b + " c"
  */
 function parseAttr (attr) {
+    Directive = Directive || require('./directive')
     var tokens = parse(attr)
     if (!tokens) return null
+    if (tokens.length === 1) return tokens[0].key
     var res = [], token
     for (var i = 0, l = tokens.length; i < l; i++) {
         token = tokens[i]
-        res.push(token.key || ('"' + token + '"'))
+        res.push(
+            token.key
+                ? inlineFilters(token.key)
+                : ('"' + token + '"')
+        )
     }
     return res.join('+')
 }
 
-exports.parse = parse
-exports.parseAttr = parseAttr
+/**
+ *  Inlines any possible filters in a binding
+ *  so that we can combine everything into a huge expression
+ */
+function inlineFilters (key) {
+    if (key.indexOf('|') > -1) {
+        var dirs = Directive.parse(key),
+            dir = dirs && dirs[0]
+        if (dir && dir.filters) {
+            key = Directive.inlineFilters(
+                dir.key,
+                dir.filters
+            )
+        }
+    }
+    return '(' + key + ')'
+}
+
+exports.parse         = parse
+exports.parseAttr     = parseAttr
+exports.setDelimiters = setDelimiters
+exports.delimiters    = [openChar, endChar]
 });
 require.register("vue/src/deps-parser.js", function(exports, require, module){
 var Emitter  = require('./emitter'),
@@ -16500,7 +28880,15 @@ function catchDeps (binding) {
     binding.deps = []
     catcher.on('get', function (dep) {
         var has = got[dep.key]
-        if (has && has.compiler === dep.compiler) return
+        if (
+            // avoid duplicate bindings
+            (has && has.compiler === dep.compiler) ||
+            // avoid repeated items as dependency
+            // only when the binding is from self or the parent chain
+            (dep.compiler.repeat && !isParentOf(dep.compiler, binding.compiler))
+        ) {
+            return
+        }
         got[dep.key] = dep
         utils.log('  - ' + dep.key)
         binding.deps.push(dep)
@@ -16508,6 +28896,18 @@ function catchDeps (binding) {
     })
     binding.value.$get()
     catcher.off('get')
+}
+
+/**
+ *  Test if A is a parent of or equals B
+ */
+function isParentOf (a, b) {
+    while (b) {
+        if (a === b) {
+            return true
+        }
+        b = b.parent
+    }
 }
 
 module.exports = {
@@ -16531,6 +28931,75 @@ module.exports = {
 }
 });
 require.register("vue/src/filters.js", function(exports, require, module){
+var utils    = require('./utils'),
+    get      = utils.get,
+    slice    = [].slice,
+    QUOTE_RE = /^'.*'$/,
+    filters  = module.exports = utils.hash()
+
+/**
+ *  'abc' => 'Abc'
+ */
+filters.capitalize = function (value) {
+    if (!value && value !== 0) return ''
+    value = value.toString()
+    return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+/**
+ *  'abc' => 'ABC'
+ */
+filters.uppercase = function (value) {
+    return (value || value === 0)
+        ? value.toString().toUpperCase()
+        : ''
+}
+
+/**
+ *  'AbC' => 'abc'
+ */
+filters.lowercase = function (value) {
+    return (value || value === 0)
+        ? value.toString().toLowerCase()
+        : ''
+}
+
+/**
+ *  12345 => $12,345.00
+ */
+filters.currency = function (value, sign) {
+    if (!value && value !== 0) return ''
+    sign = sign || '$'
+    var s = Math.floor(value).toString(),
+        i = s.length % 3,
+        h = i > 0 ? (s.slice(0, i) + (s.length > 3 ? ',' : '')) : '',
+        f = '.' + value.toFixed(2).slice(-2)
+    return sign + h + s.slice(i).replace(/(\d{3})(?=\d)/g, '$1,') + f
+}
+
+/**
+ *  args: an array of strings corresponding to
+ *  the single, double, triple ... forms of the word to
+ *  be pluralized. When the number to be pluralized
+ *  exceeds the length of the args, it will use the last
+ *  entry in the array.
+ *
+ *  e.g. ['single', 'double', 'triple', 'multiple']
+ */
+filters.pluralize = function (value) {
+    var args = slice.call(arguments, 1)
+    return args.length > 1
+        ? (args[value - 1] || args[args.length - 1])
+        : (args[value - 1] || args[0] + 's')
+}
+
+/**
+ *  A special filter that takes a handler function,
+ *  wraps it so it only gets triggered on specific keypresses.
+ *
+ *  v-on only
+ */
+
 var keyCodes = {
     enter    : 13,
     tab      : 9,
@@ -16542,84 +29011,126 @@ var keyCodes = {
     esc      : 27
 }
 
-module.exports = {
-
-    /**
-     *  'abc' => 'Abc'
-     */
-    capitalize: function (value) {
-        if (!value && value !== 0) return ''
-        value = value.toString()
-        return value.charAt(0).toUpperCase() + value.slice(1)
-    },
-
-    /**
-     *  'abc' => 'ABC'
-     */
-    uppercase: function (value) {
-        return (value || value === 0)
-            ? value.toString().toUpperCase()
-            : ''
-    },
-
-    /**
-     *  'AbC' => 'abc'
-     */
-    lowercase: function (value) {
-        return (value || value === 0)
-            ? value.toString().toLowerCase()
-            : ''
-    },
-
-    /**
-     *  12345 => $12,345.00
-     */
-    currency: function (value, args) {
-        if (!value && value !== 0) return ''
-        var sign = (args && args[0]) || '$',
-            s = Math.floor(value).toString(),
-            i = s.length % 3,
-            h = i > 0 ? (s.slice(0, i) + (s.length > 3 ? ',' : '')) : '',
-            f = '.' + value.toFixed(2).slice(-2)
-        return sign + h + s.slice(i).replace(/(\d{3})(?=\d)/g, '$1,') + f
-    },
-
-    /**
-     *  args: an array of strings corresponding to
-     *  the single, double, triple ... forms of the word to
-     *  be pluralized. When the number to be pluralized
-     *  exceeds the length of the args, it will use the last
-     *  entry in the array.
-     *
-     *  e.g. ['single', 'double', 'triple', 'multiple']
-     */
-    pluralize: function (value, args) {
-        return args.length > 1
-            ? (args[value - 1] || args[args.length - 1])
-            : (args[value - 1] || args[0] + 's')
-    },
-
-    /**
-     *  A special filter that takes a handler function,
-     *  wraps it so it only gets triggered on specific keypresses.
-     */
-    key: function (handler, args) {
-        if (!handler) return
-        var code = keyCodes[args[0]]
-        if (!code) {
-            code = parseInt(args[0], 10)
+filters.key = function (handler, key) {
+    if (!handler) return
+    var code = keyCodes[key]
+    if (!code) {
+        code = parseInt(key, 10)
+    }
+    return function (e) {
+        if (e.keyCode === code) {
+            return handler.call(this, e)
         }
-        return function (e) {
-            if (e.keyCode === code) {
-                handler.call(this, e)
+    }
+}
+
+/**
+ *  Filter filter for v-repeat
+ */
+filters.filterBy = function (arr, searchKey, delimiter, dataKey) {
+
+    // allow optional `in` delimiter
+    // because why not
+    if (delimiter && delimiter !== 'in') {
+        dataKey = delimiter
+    }
+
+    // get the search string
+    var search = stripQuotes(searchKey) || this.$get(searchKey)
+    if (!search) return arr
+    search = search.toLowerCase()
+
+    // get the optional dataKey
+    dataKey = dataKey && (stripQuotes(dataKey) || this.$get(dataKey))
+
+    // convert object to array
+    if (!Array.isArray(arr)) {
+        arr = utils.objectToArray(arr)
+    }
+
+    return arr.filter(function (item) {
+        return dataKey
+            ? contains(get(item, dataKey), search)
+            : contains(item, search)
+    })
+
+}
+
+filters.filterBy.computed = true
+
+/**
+ *  Sort fitler for v-repeat
+ */
+filters.orderBy = function (arr, sortKey, reverseKey) {
+
+    var key = stripQuotes(sortKey) || this.$get(sortKey)
+    if (!key) return arr
+
+    // convert object to array
+    if (!Array.isArray(arr)) {
+        arr = utils.objectToArray(arr)
+    }
+
+    var order = 1
+    if (reverseKey) {
+        if (reverseKey === '-1') {
+            order = -1
+        } else if (reverseKey.charAt(0) === '!') {
+            reverseKey = reverseKey.slice(1)
+            order = this.$get(reverseKey) ? 1 : -1
+        } else {
+            order = this.$get(reverseKey) ? -1 : 1
+        }
+    }
+
+    // sort on a copy to avoid mutating original array
+    return arr.slice().sort(function (a, b) {
+        a = get(a, key)
+        b = get(b, key)
+        return a === b ? 0 : a > b ? order : -order
+    })
+
+}
+
+filters.orderBy.computed = true
+
+// Array filter helpers -------------------------------------------------------
+
+/**
+ *  String contain helper
+ */
+function contains (val, search) {
+    /* jshint eqeqeq: false */
+    if (utils.isObject(val)) {
+        for (var key in val) {
+            if (contains(val[key], search)) {
+                return true
             }
         }
+    } else if (val != null) {
+        return val.toString().toLowerCase().indexOf(search) > -1
+    }
+}
+
+/**
+ *  Test whether a string is in quotes,
+ *  if yes return stripped string
+ */
+function stripQuotes (str) {
+    if (QUOTE_RE.test(str)) {
+        return str.slice(1, -1)
     }
 }
 });
 require.register("vue/src/transition.js", function(exports, require, module){
-var endEvent   = sniffTransitionEndEvent(),
+var endEvents  = sniffEndEvents(),
     config     = require('./config'),
+    // batch enter animations so we only force the layout once
+    Batcher    = require('./batcher'),
+    batcher    = new Batcher(),
+    // cache timer functions
+    setTO      = window.setTimeout,
+    clearTO    = window.clearTimeout,
     // exit codes for testing
     codes = {
         CSS_E     : 1,
@@ -16634,6 +29145,12 @@ var endEvent   = sniffTransitionEndEvent(),
         SKIP      : -6
     }
 
+// force layout before triggering transitions/animations
+batcher._preFlush = function () {
+    /* jshint unused: false */
+    var f = document.body.offsetHeight
+}
+
 /**
  *  stage:
  *    1 = enter
@@ -16643,7 +29160,7 @@ var transition = module.exports = function (el, stage, cb, compiler) {
 
     var changeState = function () {
         cb()
-        compiler.execHook(stage > 0 ? 'enteredView' : 'leftView')
+        compiler.execHook(stage > 0 ? 'attached' : 'detached')
     }
 
     if (compiler.init) {
@@ -16651,21 +29168,24 @@ var transition = module.exports = function (el, stage, cb, compiler) {
         return codes.INIT
     }
 
-    var transitionId = el.vue_trans
+    var hasTransition = el.vue_trans === '',
+        hasAnimation  = el.vue_anim === '',
+        effectId      = el.vue_effect
 
-    if (transitionId) {
+    if (effectId) {
         return applyTransitionFunctions(
             el,
             stage,
             changeState,
-            transitionId,
+            effectId,
             compiler
         )
-    } else if (transitionId === '') {
+    } else if (hasTransition || hasAnimation) {
         return applyTransitionClass(
             el,
             stage,
-            changeState
+            changeState,
+            hasAnimation
         )
     } else {
         changeState()
@@ -16679,83 +29199,128 @@ transition.codes = codes
 /**
  *  Togggle a CSS class to trigger transition
  */
-function applyTransitionClass (el, stage, changeState) {
+function applyTransitionClass (el, stage, changeState, hasAnimation) {
 
-    if (!endEvent) {
+    if (!endEvents.trans) {
         changeState()
         return codes.CSS_SKIP
     }
 
     // if the browser supports transition,
     // it must have classList...
-    var classList         = el.classList,
-        lastLeaveCallback = el.vue_trans_cb
+    var onEnd,
+        classList        = el.classList,
+        existingCallback = el.vue_trans_cb,
+        enterClass       = config.enterClass,
+        leaveClass       = config.leaveClass,
+        endEvent         = hasAnimation ? endEvents.anim : endEvents.trans
+
+    // cancel unfinished callbacks and jobs
+    if (existingCallback) {
+        el.removeEventListener(endEvent, existingCallback)
+        classList.remove(enterClass)
+        classList.remove(leaveClass)
+        el.vue_trans_cb = null
+    }
 
     if (stage > 0) { // enter
 
-        // cancel unfinished leave transition
-        if (lastLeaveCallback) {
-            el.removeEventListener(endEvent, lastLeaveCallback)
-            el.vue_trans_cb = null
-        }
-
-        // set to hidden state before appending
-        classList.add(config.enterClass)
+        // set to enter state before appending
+        classList.add(enterClass)
         // append
         changeState()
-        // force a layout so transition can be triggered
-        /* jshint unused: false */
-        var forceLayout = el.clientHeight
         // trigger transition
-        classList.remove(config.enterClass)
+        if (!hasAnimation) {
+            batcher.push({
+                execute: function () {
+                    classList.remove(enterClass)
+                }
+            })
+        } else {
+            onEnd = function (e) {
+                if (e.target === el) {
+                    el.removeEventListener(endEvent, onEnd)
+                    el.vue_trans_cb = null
+                    classList.remove(enterClass)
+                }
+            }
+            el.addEventListener(endEvent, onEnd)
+            el.vue_trans_cb = onEnd
+        }
         return codes.CSS_E
 
     } else { // leave
 
-        // trigger hide transition
-        classList.add(config.leaveClass)
-        var onEnd = function (e) {
-            if (e.target === el) {
-                el.removeEventListener(endEvent, onEnd)
-                el.vue_trans_cb = null
-                // actually remove node here
-                changeState()
-                classList.remove(config.leaveClass)
+        if (el.offsetWidth || el.offsetHeight) {
+            // trigger hide transition
+            classList.add(leaveClass)
+            onEnd = function (e) {
+                if (e.target === el) {
+                    el.removeEventListener(endEvent, onEnd)
+                    el.vue_trans_cb = null
+                    // actually remove node here
+                    changeState()
+                    classList.remove(leaveClass)
+                }
             }
+            // attach transition end listener
+            el.addEventListener(endEvent, onEnd)
+            el.vue_trans_cb = onEnd
+        } else {
+            // directly remove invisible elements
+            changeState()
         }
-        // attach transition end listener
-        el.addEventListener(endEvent, onEnd)
-        el.vue_trans_cb = onEnd
         return codes.CSS_L
         
     }
 
 }
 
-function applyTransitionFunctions (el, stage, changeState, functionId, compiler) {
+function applyTransitionFunctions (el, stage, changeState, effectId, compiler) {
 
-    var funcs = compiler.getOption('transitions', functionId)
+    var funcs = compiler.getOption('effects', effectId)
     if (!funcs) {
         changeState()
         return codes.JS_SKIP
     }
 
     var enter = funcs.enter,
-        leave = funcs.leave
+        leave = funcs.leave,
+        timeouts = el.vue_timeouts
+
+    // clear previous timeouts
+    if (timeouts) {
+        var i = timeouts.length
+        while (i--) {
+            clearTO(timeouts[i])
+        }
+    }
+
+    timeouts = el.vue_timeouts = []
+    function timeout (cb, delay) {
+        var id = setTO(function () {
+            cb()
+            timeouts.splice(timeouts.indexOf(id), 1)
+            if (!timeouts.length) {
+                el.vue_timeouts = null
+            }
+        }, delay)
+        timeouts.push(id)
+    }
 
     if (stage > 0) { // enter
         if (typeof enter !== 'function') {
             changeState()
             return codes.JS_SKIP_E
         }
-        enter(el, changeState)
+        enter(el, changeState, timeout)
         return codes.JS_E
     } else { // leave
         if (typeof leave !== 'function') {
             changeState()
             return codes.JS_SKIP_L
         }
-        leave(el, changeState)
+        leave(el, changeState, timeout)
         return codes.JS_L
     }
 
@@ -16764,529 +29329,570 @@ function applyTransitionFunctions (el, stage, changeState, functionId, compiler)
 /**
  *  Sniff proper transition end event name
  */
-function sniffTransitionEndEvent () {
+function sniffEndEvents () {
     var el = document.createElement('vue'),
         defaultEvent = 'transitionend',
         events = {
             'transition'       : defaultEvent,
             'mozTransition'    : defaultEvent,
             'webkitTransition' : 'webkitTransitionEnd'
-        }
+        },
+        ret = {}
     for (var name in events) {
         if (el.style[name] !== undefined) {
-            return events[name]
+            ret.trans = events[name]
+            break
         }
     }
+    ret.anim = el.style.animation === ''
+        ? 'animationend'
+        : 'webkitAnimationEnd'
+    return ret
 }
 });
 require.register("vue/src/batcher.js", function(exports, require, module){
-var utils = require('./utils'),
-    queue, has, waiting
+var utils = require('./utils')
 
-reset()
+function Batcher () {
+    this.reset()
+}
 
-exports.queue = function (binding) {
-    if (!has[binding.id]) {
-        queue.push(binding)
-        has[binding.id] = true
-        if (!waiting) {
-            waiting = true
-            utils.nextTick(flush)
+var BatcherProto = Batcher.prototype
+
+BatcherProto.push = function (job) {
+    if (!job.id || !this.has[job.id]) {
+        this.queue.push(job)
+        this.has[job.id] = job
+        if (!this.waiting) {
+            this.waiting = true
+            utils.nextTick(utils.bind(this.flush, this))
+        }
+    } else if (job.override) {
+        var oldJob = this.has[job.id]
+        oldJob.cancelled = true
+        this.queue.push(job)
+        this.has[job.id] = job
+    }
+}
+
+BatcherProto.flush = function () {
+    // before flush hook
+    if (this._preFlush) this._preFlush()
+    // do not cache length because more jobs might be pushed
+    // as we execute existing jobs
+    for (var i = 0; i < this.queue.length; i++) {
+        var job = this.queue[i]
+        if (!job.cancelled) {
+            job.execute()
         }
     }
+    this.reset()
 }
 
-function flush () {
-    for (var i = 0; i < queue.length; i++) {
-        var b = queue[i]
-        if (b.unbound) continue
-        b._update()
-        has[b.id] = false
-    }
-    reset()
+BatcherProto.reset = function () {
+    this.has = utils.hash()
+    this.queue = []
+    this.waiting = false
 }
 
-function reset () {
-    queue = []
-    has = utils.hash()
-    waiting = false
-}
+module.exports = Batcher
 });
 require.register("vue/src/directives/index.js", function(exports, require, module){
 var utils      = require('../utils'),
     config     = require('../config'),
-    transition = require('../transition')
+    transition = require('../transition'),
+    directives = module.exports = utils.hash()
 
-module.exports = {
+/**
+ *  Nest and manage a Child VM
+ */
+directives.component = {
+    isLiteral: true,
+    bind: function () {
+        if (!this.el.vue_vm) {
+            this.childVM = new this.Ctor({
+                el: this.el,
+                parent: this.vm
+            })
+        }
+    },
+    unbind: function () {
+        if (this.childVM) {
+            this.childVM.$destroy()
+        }
+    }
+}
 
-    on        : require('./on'),
-    repeat    : require('./repeat'),
-    model     : require('./model'),
-    'if'      : require('./if'),
-    'with'    : require('./with'),
-    html      : require('./html'),
-    style     : require('./style'),
-
-    attr: function (value) {
+/**
+ *  Binding HTML attributes
+ */
+directives.attr = {
+    bind: function () {
+        var params = this.vm.$options.paramAttributes
+        this.isParam = params && params.indexOf(this.arg) > -1
+    },
+    update: function (value) {
         if (value || value === 0) {
             this.el.setAttribute(this.arg, value)
         } else {
             this.el.removeAttribute(this.arg)
         }
-    },
-
-    text: function (value) {
-        this.el.textContent = utils.toText(value)
-    },
-
-    show: function (value) {
-        var el = this.el,
-            target = value ? '' : 'none',
-            change = function () {
-                el.style.display = target
-            }
-        transition(el, value ? 1 : -1, change, this.compiler)
-    },
-
-    'class': function (value) {
-        if (this.arg) {
-            utils[value ? 'addClass' : 'removeClass'](this.el, this.arg)
-        } else {
-            if (this.lastVal) {
-                utils.removeClass(this.el, this.lastVal)
-            }
-            if (value) {
-                utils.addClass(this.el, value)
-                this.lastVal = value
-            }
-        }
-    },
-
-    cloak: {
-        bind: function () {
-            var el = this.el
-            this.compiler.observer.once('hook:ready', function () {
-                el.removeAttribute(config.prefix + '-cloak')
-            })
+        if (this.isParam) {
+            this.vm[this.arg] = utils.checkNumber(value)
         }
     }
-
 }
+
+/**
+ *  Binding textContent
+ */
+directives.text = {
+    bind: function () {
+        this.attr = this.el.nodeType === 3
+            ? 'nodeValue'
+            : 'textContent'
+    },
+    update: function (value) {
+        this.el[this.attr] = utils.guard(value)
+    }
+}
+
+/**
+ *  Binding CSS display property
+ */
+directives.show = function (value) {
+    var el = this.el,
+        target = value ? '' : 'none',
+        change = function () {
+            el.style.display = target
+        }
+    transition(el, value ? 1 : -1, change, this.compiler)
+}
+
+/**
+ *  Binding CSS classes
+ */
+directives['class'] = function (value) {
+    if (this.arg) {
+        utils[value ? 'addClass' : 'removeClass'](this.el, this.arg)
+    } else {
+        if (this.lastVal) {
+            utils.removeClass(this.el, this.lastVal)
+        }
+        if (value) {
+            utils.addClass(this.el, value)
+            this.lastVal = value
+        }
+    }
+}
+
+/**
+ *  Only removed after the owner VM is ready
+ */
+directives.cloak = {
+    isEmpty: true,
+    bind: function () {
+        var el = this.el
+        this.compiler.observer.once('hook:ready', function () {
+            el.removeAttribute(config.prefix + '-cloak')
+        })
+    }
+}
+
+/**
+ *  Store a reference to self in parent VM's $
+ */
+directives.ref = {
+    isLiteral: true,
+    bind: function () {
+        var id = this.expression
+        if (id) {
+            this.vm.$parent.$[id] = this.vm
+        }
+    },
+    unbind: function () {
+        var id = this.expression
+        if (id) {
+            delete this.vm.$parent.$[id]
+        }
+    }
+}
+
+directives.on      = require('./on')
+directives.repeat  = require('./repeat')
+directives.model   = require('./model')
+directives['if']   = require('./if')
+directives['with'] = require('./with')
+directives.html    = require('./html')
+directives.style   = require('./style')
+directives.partial = require('./partial')
+directives.view    = require('./view')
 });
 require.register("vue/src/directives/if.js", function(exports, require, module){
-var config = require('../config'),
-    transition = require('../transition')
+var utils    = require('../utils')
 
+/**
+ *  Manages a conditional child VM
+ */
 module.exports = {
 
     bind: function () {
+        
         this.parent = this.el.parentNode
-        this.ref = document.createComment(config.prefix + '-if-' + this.key)
-        this.el.vue_ref = this.ref
+        this.ref    = document.createComment('vue-if')
+        this.Ctor   = this.compiler.resolveComponent(this.el)
+
+        // insert ref
+        this.parent.insertBefore(this.ref, this.el)
+        this.parent.removeChild(this.el)
+
+        if (utils.attr(this.el, 'view')) {
+            utils.warn(
+                'Conflict: v-if cannot be used together with v-view. ' +
+                'Just set v-view\'s binding value to empty string to empty it.'
+            )
+        }
+        if (utils.attr(this.el, 'repeat')) {
+            utils.warn(
+                'Conflict: v-if cannot be used together with v-repeat. ' +
+                'Use `v-show` or the `filterBy` filter instead.'
+            )
+        }
     },
 
     update: function (value) {
 
-        var el       = this.el
-
-        if (!this.parent) { // the node was detached when bound
-            if (!el.parentNode) {
-                return
-            } else {
-                this.parent = el.parentNode
-            }
-        }
-
-        // should always have this.parent if we reach here
-        var parent   = this.parent,
-            ref      = this.ref,
-            compiler = this.compiler
-
         if (!value) {
-            transition(el, -1, remove, compiler)
-        } else {
-            transition(el, 1, insert, compiler)
-        }
-
-        function remove () {
-            if (!el.parentNode) return
-            // insert the reference node
-            var next = el.nextSibling
-            if (next) {
-                parent.insertBefore(ref, next)
+            this._unbind()
+        } else if (!this.childVM) {
+            this.childVM = new this.Ctor({
+                el: this.el.cloneNode(true),
+                parent: this.vm
+            })
+            if (this.compiler.init) {
+                this.parent.insertBefore(this.childVM.$el, this.ref)
             } else {
-                parent.appendChild(ref)
+                this.childVM.$before(this.ref)
             }
-            parent.removeChild(el)
         }
-
-        function insert () {
-            if (el.parentNode) return
-            parent.insertBefore(el, ref)
-            parent.removeChild(ref)
-        }
+        
     },
 
     unbind: function () {
-        this.el.vue_ref = null
+        if (this.childVM) {
+            this.childVM.$destroy()
+            this.childVM = null
+        }
     }
 }
 });
 require.register("vue/src/directives/repeat.js", function(exports, require, module){
-var Observer   = require('../observer'),
-    Emitter    = require('../emitter'),
-    utils      = require('../utils'),
-    config     = require('../config'),
-    transition = require('../transition'),
-    ViewModel // lazy def to avoid circular dependency
+var utils      = require('../utils'),
+    config     = require('../config')
 
 /**
- *  Mathods that perform precise DOM manipulation
- *  based on mutator method triggered
+ *  Binding that manages VMs based on an Array
  */
-var mutationHandlers = {
-
-    push: function (m) {
-        var i, l = m.args.length,
-            base = this.collection.length - l
-        for (i = 0; i < l; i++) {
-            this.buildItem(m.args[i], base + i)
-        }
-    },
-
-    pop: function () {
-        var vm = this.vms.pop()
-        if (vm) vm.$destroy()
-    },
-
-    unshift: function (m) {
-        m.args.forEach(this.buildItem, this)
-    },
-
-    shift: function () {
-        var vm = this.vms.shift()
-        if (vm) vm.$destroy()
-    },
-
-    splice: function (m) {
-        var i, l,
-            index = m.args[0],
-            removed = m.args[1],
-            added = m.args.length - 2,
-            removedVMs = this.vms.splice(index, removed)
-        for (i = 0, l = removedVMs.length; i < l; i++) {
-            removedVMs[i].$destroy()
-        }
-        for (i = 0; i < added; i++) {
-            this.buildItem(m.args[i + 2], index + i)
-        }
-    },
-
-    sort: function () {
-        var vms = this.vms,
-            col = this.collection,
-            l = col.length,
-            sorted = new Array(l),
-            i, j, vm, data
-        for (i = 0; i < l; i++) {
-            data = col[i]
-            for (j = 0; j < l; j++) {
-                vm = vms[j]
-                if (vm.$data === data) {
-                    sorted[i] = vm
-                    break
-                }
-            }
-        }
-        for (i = 0; i < l; i++) {
-            this.container.insertBefore(sorted[i].$el, this.ref)
-        }
-        this.vms = sorted
-    },
-
-    reverse: function () {
-        var vms = this.vms
-        vms.reverse()
-        for (var i = 0, l = vms.length; i < l; i++) {
-            this.container.insertBefore(vms[i].$el, this.ref)
-        }
-    }
-}
-
 module.exports = {
 
     bind: function () {
 
+        this.identifier = '$r' + this.id
+
+        // a hash to cache the same expressions on repeated instances
+        // so they don't have to be compiled for every single instance
+        this.expCache = utils.hash()
+
         var el   = this.el,
             ctn  = this.container = el.parentNode
 
-        // extract child VM information, if any
-        ViewModel = ViewModel || require('../viewmodel')
-        this.Ctor = this.Ctor || ViewModel
-        // extract transition information
-        this.hasTrans = el.hasAttribute(config.attrs.transition)
         // extract child Id, if any
-        this.childId = utils.attr(el, 'component-id')
+        this.childId = this.compiler.eval(utils.attr(el, 'ref'))
 
         // create a comment node as a reference node for DOM insertions
         this.ref = document.createComment(config.prefix + '-repeat-' + this.key)
         ctn.insertBefore(this.ref, el)
         ctn.removeChild(el)
 
-        this.initiated = false
         this.collection = null
         this.vms = null
 
-        var self = this
-        this.mutationListener = function (path, arr, mutation) {
-            var method = mutation.method
-            mutationHandlers[method].call(self, mutation)
-            if (method !== 'push' && method !== 'pop') {
-                self.updateIndex()
-            }
-            if (method === 'push' || method === 'unshift' || method === 'splice') {
-                self.changed()
-            }
-        }
-
     },
 
-    update: function (collection, init) {
+    update: function (collection) {
 
-        this.reset()
-        // attach an object to container to hold handlers
-        this.container.vue_dHandlers = utils.hash()
-        // if initiating with an empty collection, we need to
-        // force a compile so that we get all the bindings for
-        // dependency extraction.
-        if (!this.initiated && (!collection || !collection.length)) {
-            this.buildItem()
-            this.initiated = true
+        if (!Array.isArray(collection)) {
+            if (utils.isObject(collection)) {
+                collection = utils.objectToArray(collection)
+            } else {
+                utils.warn('v-repeat only accepts Array or Object values.')
+            }
         }
+
+        // keep reference of old data and VMs
+        // so we can reuse them if possible
+        this.oldVMs = this.vms
+        this.oldCollection = this.collection
         collection = this.collection = collection || []
-        this.vms = []
+
+        var isObject = collection[0] && utils.isObject(collection[0])
+        this.vms = this.oldCollection
+            ? this.diff(collection, isObject)
+            : this.init(collection, isObject)
+
         if (this.childId) {
             this.vm.$[this.childId] = this.vms
         }
 
-        // listen for collection mutation events
-        // the collection has been augmented during Binding.set()
-        if (!collection.__observer__) Observer.watchArray(collection, null, new Emitter())
-        collection.__observer__.on('mutate', this.mutationListener)
+    },
 
-        // create child-vms and append to DOM
-        if (collection.length) {
-            collection.forEach(this.buildItem, this)
-            if (!init) this.changed()
+    init: function (collection, isObject) {
+        var vm, vms = []
+        for (var i = 0, l = collection.length; i < l; i++) {
+            vm = this.build(collection[i], i, isObject)
+            vms.push(vm)
+            if (this.compiler.init) {
+                this.container.insertBefore(vm.$el, this.ref)
+            } else {
+                vm.$before(this.ref)
+            }
         }
+        return vms
     },
 
     /**
-     *  Notify parent compiler that new items
-     *  have been added to the collection, it needs
-     *  to re-calculate computed property dependencies.
-     *  Batched to ensure it's called only once every event loop.
+     *  Diff the new array with the old
+     *  and determine the minimum amount of DOM manipulations.
      */
-    changed: function () {
-        if (this.queued) return
-        this.queued = true
-        var self = this
-        setTimeout(function () {
-            self.compiler.parseDeps()
-            self.queued = false
-        }, 0)
-    },
+    diff: function (newCollection, isObject) {
 
-    /**
-     *  Create a new child VM from a data object
-     *  passing along compiler options indicating this
-     *  is a v-repeat item.
-     */
-    buildItem: function (data, index) {
+        var i, l, item, vm,
+            oldIndex,
+            targetNext,
+            currentNext,
+            nextEl,
+            ctn    = this.container,
+            oldVMs = this.oldVMs,
+            vms    = []
 
-        var el  = this.el.cloneNode(true),
-            ctn = this.container,
-            vms = this.vms,
-            col = this.collection,
-            ref, item, primitive
+        vms.length = newCollection.length
 
-        // append node into DOM first
-        // so v-if can get access to parentNode
-        if (data) {
-            ref = vms.length > index
-                ? vms[index].$el
-                : this.ref
-            // make sure it works with v-if
-            if (!ref.parentNode) ref = ref.vue_ref
-            // process transition info before appending
-            el.vue_trans = utils.attr(el, 'transition', true)
-            transition(el, 1, function () {
-                ctn.insertBefore(el, ref)
-            }, this.compiler)
-            // wrap primitive element in an object
-            if (utils.typeOf(data) !== 'Object') {
-                primitive = true
-                data = { value: data }
+        // first pass, collect new reused and new created
+        for (i = 0, l = newCollection.length; i < l; i++) {
+            item = newCollection[i]
+            if (isObject) {
+                item.$index = i
+                if (item.__emitter__ && item.__emitter__[this.identifier]) {
+                    // this piece of data is being reused.
+                    // record its final position in reused vms
+                    item.$reused = true
+                } else {
+                    vms[i] = this.build(item, i, isObject)
+                }
+            } else {
+                // we can't attach an identifier to primitive values
+                // so have to do an indexOf...
+                oldIndex = indexOf(oldVMs, item)
+                if (oldIndex > -1) {
+                    // record the position on the existing vm
+                    oldVMs[oldIndex].$reused = true
+                    oldVMs[oldIndex].$data.$index = i
+                } else {
+                    vms[i] = this.build(item, i, isObject)
+                }
             }
         }
 
-        item = new this.Ctor({
-            el: el,
-            data: data,
-            compilerOptions: {
-                repeat: true,
-                repeatIndex: index,
-                parentCompiler: this.compiler,
-                delegator: ctn
+        // second pass, collect old reused and destroy unused
+        for (i = 0, l = oldVMs.length; i < l; i++) {
+            vm = oldVMs[i]
+            item = this.arg
+                ? vm.$data[this.arg]
+                : vm.$data
+            if (item.$reused) {
+                vm.$reused = true
+                delete item.$reused
             }
-        })
-
-        if (!data) {
-            // this is a forced compile for an empty collection.
-            // let's remove it...
-            item.$destroy()
-        } else {
-            vms.splice(index, 0, item)
-            // for primitive values, listen for value change
-            if (primitive) {
-                data.__observer__.on('set', function (key, val) {
-                    if (key === 'value') {
-                        col[item.$index] = val
-                    }
-                })
+            if (vm.$reused) {
+                // update the index to latest
+                vm.$index = item.$index
+                // the item could have had a new key
+                if (item.$key && item.$key !== vm.$key) {
+                    vm.$key = item.$key
+                }
+                vms[vm.$index] = vm
+            } else {
+                // this one can be destroyed.
+                if (item.__emitter__) {
+                    delete item.__emitter__[this.identifier]
+                }
+                vm.$destroy()
             }
         }
-    },
 
-    /**
-     *  Update index of each item after a mutation
-     */
-    updateIndex: function () {
-        var i = this.vms.length
+        // final pass, move/insert DOM elements
+        i = vms.length
         while (i--) {
-            this.vms[i].$data.$index = i
+            vm = vms[i]
+            item = vm.$data
+            targetNext = vms[i + 1]
+            if (vm.$reused) {
+                nextEl = vm.$el.nextSibling
+                // destroyed VMs' element might still be in the DOM
+                // due to transitions
+                while (!nextEl.vue_vm && nextEl !== this.ref) {
+                    nextEl = nextEl.nextSibling
+                }
+                currentNext = nextEl.vue_vm
+                if (currentNext !== targetNext) {
+                    if (!targetNext) {
+                        ctn.insertBefore(vm.$el, this.ref)
+                    } else {
+                        nextEl = targetNext.$el
+                        // new VMs' element might not be in the DOM yet
+                        // due to transitions
+                        while (!nextEl.parentNode) {
+                            targetNext = vms[nextEl.vue_vm.$index + 1]
+                            nextEl = targetNext
+                                ? targetNext.$el
+                                : this.ref
+                        }
+                        ctn.insertBefore(vm.$el, nextEl)
+                    }
+                }
+                delete vm.$reused
+                delete item.$index
+                delete item.$key
+            } else { // a new vm
+                vm.$before(targetNext ? targetNext.$el : this.ref)
+            }
         }
+
+        return vms
     },
 
-    reset: function () {
+    build: function (data, index, isObject) {
+
+        // wrap non-object values
+        var raw, alias,
+            wrap = !isObject || this.arg
+        if (wrap) {
+            raw = data
+            alias = this.arg || '$value'
+            data = {}
+            data[alias] = raw
+        }
+        data.$index = index
+
+        var el = this.el.cloneNode(true),
+            Ctor = this.compiler.resolveComponent(el, data),
+            vm = new Ctor({
+                el: el,
+                data: data,
+                parent: this.vm,
+                compilerOptions: {
+                    repeat: true,
+                    expCache: this.expCache
+                }
+            })
+
+        if (isObject) {
+            // attach an ienumerable identifier to the raw data
+            (raw || data).__emitter__[this.identifier] = true
+        }
+
+        if (wrap) {
+            var self = this,
+                sync = function (val) {
+                    self.lock = true
+                    self.collection.$set(vm.$index, val)
+                    self.lock = false
+                }
+            vm.$compiler.observer.on('change:' + alias, sync)
+        }
+
+        return vm
+
+    },
+
+    unbind: function () {
         if (this.childId) {
             delete this.vm.$[this.childId]
         }
-        if (this.collection) {
-            this.collection.__observer__.off('mutate', this.mutationListener)
+        if (this.vms) {
             var i = this.vms.length
             while (i--) {
                 this.vms[i].$destroy()
             }
         }
-        var ctn = this.container,
-            handlers = ctn.vue_dHandlers
-        for (var key in handlers) {
-            ctn.removeEventListener(handlers[key].event, handlers[key])
-        }
-        ctn.vue_dHandlers = null
-    },
-
-    unbind: function () {
-        this.reset()
     }
+}
+
+// Helpers --------------------------------------------------------------------
+
+/**
+ *  Find an object or a wrapped data object
+ *  from an Array
+ */
+function indexOf (vms, obj) {
+    for (var vm, i = 0, l = vms.length; i < l; i++) {
+        vm = vms[i]
+        if (!vm.$reused && vm.$value === obj) {
+            return i
+        }
+    }
+    return -1
 }
 });
 require.register("vue/src/directives/on.js", function(exports, require, module){
-var utils = require('../utils')
+var utils    = require('../utils')
 
-function delegateCheck (el, root, identifier) {
-    while (el && el !== root) {
-        if (el[identifier]) return el
-        el = el.parentNode
-    }
-}
-
+/**
+ *  Binding for event listeners
+ */
 module.exports = {
 
     isFn: true,
 
     bind: function () {
-        if (this.compiler.repeat) {
-            // attach an identifier to the el
-            // so it can be matched during event delegation
-            this.el[this.expression] = true
-            // attach the owner viewmodel of this directive
-            this.el.vue_viewmodel = this.vm
-        }
+        this.context = this.binding.isExp
+            ? this.vm
+            : this.binding.compiler.vm
     },
 
     update: function (handler) {
-        this.reset()
         if (typeof handler !== 'function') {
-            return utils.warn('Directive "on" expects a function value.')
+            utils.warn('Directive "v-on:' + this.expression + '" expects a method.')
+            return
         }
-
-        var compiler = this.compiler,
-            event    = this.arg,
-            isExp    = this.binding.isExp,
-            ownerVM  = this.binding.compiler.vm
-
-        if (compiler.repeat &&
-            // do not delegate if the repeat is combined with an extended VM
-            !this.vm.constructor.super &&
-            // blur and focus events do not bubble
-            event !== 'blur' && event !== 'focus') {
-
-            // for each blocks, delegate for better performance
-            // focus and blur events dont bubble so exclude them
-            var delegator  = compiler.delegator,
-                identifier = this.expression,
-                dHandler   = delegator.vue_dHandlers[identifier]
-
-            if (dHandler) return
-
-            // the following only gets run once for the entire each block
-            dHandler = delegator.vue_dHandlers[identifier] = function (e) {
-                var target = delegateCheck(e.target, delegator, identifier)
-                if (target) {
-                    e.el = target
-                    e.targetVM = target.vue_viewmodel
-                    handler.call(isExp ? e.targetVM : ownerVM, e)
-                }
-            }
-            dHandler.event = event
-            delegator.addEventListener(event, dHandler)
-
-        } else {
-
-            // a normal, single element handler
-            var vm = this.vm
-            this.handler = function (e) {
-                e.el = e.currentTarget
-                e.targetVM = vm
-                handler.call(ownerVM, e)
-            }
-            this.el.addEventListener(event, this.handler)
-
+        this._unbind()
+        var vm = this.vm,
+            context = this.context
+        this.handler = function (e) {
+            e.targetVM = vm
+            context.$event = e
+            var res = handler.call(context, e)
+            context.$event = null
+            return res
         }
-    },
-
-    reset: function () {
-        this.el.removeEventListener(this.arg, this.handler)
-        this.handler = null
+        this.el.addEventListener(this.arg, this.handler)
     },
 
     unbind: function () {
-        this.reset()
-        this.el.vue_viewmodel = null
+        this.el.removeEventListener(this.arg, this.handler)
     }
 }
 });
 require.register("vue/src/directives/model.js", function(exports, require, module){
 var utils = require('../utils'),
-    isIE9 = navigator.userAgent.indexOf('MSIE 9.0') > 0
+    isIE9 = navigator.userAgent.indexOf('MSIE 9.0') > 0,
+    filter = [].filter
 
 /**
  *  Returns an array of values from a multiple select
  */
 function getMultipleSelectOptions (select) {
-    return Array.prototype.filter
+    return filter
         .call(select.options, function (option) {
             return option.selected
         })
@@ -17295,6 +29901,9 @@ function getMultipleSelectOptions (select) {
         })
 }
 
+/**
+ *  Two-way binding for form input elements
+ */
 module.exports = {
 
     bind: function () {
@@ -17305,6 +29914,7 @@ module.exports = {
             tag  = el.tagName
 
         self.lock = false
+        self.ownerVM = self.binding.compiler.vm
 
         // determine what event to listen to
         self.event =
@@ -17392,15 +30002,19 @@ module.exports = {
     },
 
     _set: function () {
-        this.vm.$set(
+        this.ownerVM.$set(
             this.key, this.multi
                 ? getMultipleSelectOptions(this.el)
                 : this.el[this.attr]
         )
     },
 
-    update: function (value) {
+    update: function (value, init) {
         /* jshint eqeqeq: false */
+        // sync back inline value if initial data is undefined
+        if (init && value === undefined) {
+            return this._set()
+        }
         if (this.lock) return
         var el = this.el
         if (el.tagName === 'SELECT') { // select dropdown
@@ -17415,7 +30029,7 @@ module.exports = {
         } else if (el.type === 'checkbox') { // checkbox
             el.checked = !!value
         } else {
-            el[this.attr] = utils.toText(value)
+            el[this.attr] = utils.guard(value)
         }
     },
 
@@ -17446,46 +30060,64 @@ module.exports = {
 }
 });
 require.register("vue/src/directives/with.js", function(exports, require, module){
-var ViewModel
+var utils = require('../utils')
 
+/**
+ *  Binding for inheriting data from parent VMs.
+ */
 module.exports = {
 
     bind: function () {
-        if (this.isEmpty) {
-            this.build()
+
+        var self      = this,
+            childKey  = self.arg,
+            parentKey = self.key,
+            compiler  = self.compiler,
+            owner     = self.binding.compiler
+
+        if (compiler === owner) {
+            this.alone = true
+            return
+        }
+
+        if (childKey) {
+            if (!compiler.bindings[childKey]) {
+                compiler.createBinding(childKey)
+            }
+            // sync changes on child back to parent
+            compiler.observer.on('change:' + childKey, function (val) {
+                if (compiler.init) return
+                if (!self.lock) {
+                    self.lock = true
+                    utils.nextTick(function () {
+                        self.lock = false
+                    })
+                }
+                owner.vm.$set(parentKey, val)
+            })
         }
     },
 
     update: function (value) {
-        if (!this.component) {
-            this.build(value)
-        } else {
-            this.component.$data = value
-        }
-    },
-
-    build: function (value) {
-        ViewModel = ViewModel || require('../viewmodel')
-        var Ctor = this.Ctor || ViewModel
-        this.component = new Ctor({
-            el: this.el,
-            data: value,
-            compilerOptions: {
-                parentCompiler: this.compiler
+        // sync from parent
+        if (!this.alone && !this.lock) {
+            if (this.arg) {
+                this.vm.$set(this.arg, value)
+            } else {
+                this.vm.$data = value
             }
-        })
-    },
-
-    unbind: function () {
-        this.component.$destroy()
+        }
     }
 
 }
 });
 require.register("vue/src/directives/html.js", function(exports, require, module){
-var toText = require('../utils').toText,
-    slice = Array.prototype.slice
+var guard = require('../utils').guard,
+    slice = [].slice
 
+/**
+ *  Binding for innerHTML
+ */
 module.exports = {
 
     bind: function () {
@@ -17499,7 +30131,7 @@ module.exports = {
     },
 
     update: function (value) {
-        value = toText(value)
+        value = guard(value)
         if (this.holder) {
             this.swap(value)
         } else {
@@ -17531,11 +30163,15 @@ function camelReplacer (m) {
     return m[1].toUpperCase()
 }
 
+/**
+ *  Binding for CSS styles
+ */
 module.exports = {
 
     bind: function () {
-        var prop = this.arg,
-            first = prop.charAt(0)
+        var prop = this.arg
+        if (!prop) return
+        var first = prop.charAt(0)
         if (first === '$') {
             // properties that start with $ will be auto-prefixed
             prop = prop.slice(1)
@@ -17549,21 +30185,132 @@ module.exports = {
 
     update: function (value) {
         var prop = this.prop
-        this.el.style[prop] = value
-        if (this.prefixed) {
-            prop = prop.charAt(0).toUpperCase() + prop.slice(1)
-            var i = prefixes.length
-            while (i--) {
-                this.el.style[prefixes[i] + prop] = value
+        if (prop) {
+            this.el.style[prop] = value
+            if (this.prefixed) {
+                prop = prop.charAt(0).toUpperCase() + prop.slice(1)
+                var i = prefixes.length
+                while (i--) {
+                    this.el.style[prefixes[i] + prop] = value
+                }
             }
+        } else {
+            this.el.style.cssText = value
         }
     }
 
 }
 });
-require.alias("component-emitter/index.js", "vue/deps/emitter/index.js");
-require.alias("component-emitter/index.js", "emitter/index.js");
+require.register("vue/src/directives/partial.js", function(exports, require, module){
+var utils = require('../utils')
 
+/**
+ *  Binding for partials
+ */
+module.exports = {
+
+    isLiteral: true,
+
+    bind: function () {
+
+        var id = this.expression
+        if (!id) return
+
+        var el       = this.el,
+            compiler = this.compiler,
+            partial  = compiler.getOption('partials', id)
+
+        if (!partial) {
+            if (id === 'yield') {
+                utils.warn('{{>yield}} syntax has been deprecated. Use <content> tag instead.')
+            }
+            return
+        }
+
+        partial = partial.cloneNode(true)
+
+        // comment ref node means inline partial
+        if (el.nodeType === 8) {
+
+            // keep a ref for the partial's content nodes
+            var nodes = [].slice.call(partial.childNodes),
+                parent = el.parentNode
+            parent.insertBefore(partial, el)
+            parent.removeChild(el)
+            // compile partial after appending, because its children's parentNode
+            // will change from the fragment to the correct parentNode.
+            // This could affect directives that need access to its element's parentNode.
+            nodes.forEach(compiler.compile, compiler)
+
+        } else {
+
+            // just set innerHTML...
+            el.innerHTML = ''
+            el.appendChild(partial.cloneNode(true))
+
+        }
+    }
+
+}
+});
+require.register("vue/src/directives/view.js", function(exports, require, module){
+/**
+ *  Manages a conditional child VM using the
+ *  binding's value as the component ID.
+ */
+module.exports = {
+
+    bind: function () {
+
+        // track position in DOM with a ref node
+        var el       = this.raw = this.el,
+            parent   = el.parentNode,
+            ref      = this.ref = document.createComment('v-view')
+        parent.insertBefore(ref, el)
+        parent.removeChild(el)
+
+        // cache original content
+        /* jshint boss: true */
+        var node,
+            frag = this.inner = document.createElement('div')
+        while (node = el.firstChild) {
+            frag.appendChild(node)
+        }
+
+    },
+
+    update: function(value) {
+
+        this._unbind()
+
+        var Ctor  = this.compiler.getOption('components', value)
+        if (!Ctor) return
+
+        this.childVM = new Ctor({
+            el: this.raw.cloneNode(true),
+            parent: this.vm,
+            compilerOptions: {
+                rawContent: this.inner.cloneNode(true)
+            }
+        })
+
+        this.el = this.childVM.$el
+        if (this.compiler.init) {
+            this.ref.parentNode.insertBefore(this.el, this.ref)
+        } else {
+            this.childVM.$before(this.ref)
+        }
+
+    },
+
+    unbind: function() {
+        if (this.childVM) {
+            this.childVM.$destroy()
+        }
+    }
+
+}
+});
 require.alias("vue/src/main.js", "vue/index.js");
 if (typeof exports == 'object') {
   module.exports = require('vue');
@@ -17796,7 +30543,7 @@ Handlebars.VM = {
 Handlebars.template = Handlebars.VM.template;
 ;
 
-;!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.jade=e():"undefined"!=typeof global?global.jade=e():"undefined"!=typeof self&&(self.jade=e())}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+;!function(e){if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.jade=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
 /**
@@ -17950,11 +30697,13 @@ exports.attrs = function attrs(obj, terse){
  */
 
 exports.escape = function escape(html){
-  return String(html)
+  var result = String(html)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+  if (result === '' + html) return html;
+  else return result;
 };
 
 /**

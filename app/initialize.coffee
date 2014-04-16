@@ -1,8 +1,16 @@
 require 'components/foo'
 require 'components/bar'
-
 Layout = require 'components/layout'
+
+Application = require 'application'
+routes = require 'routes'
 
 $ ->
   layout = new Layout
-  $('body').append layout.$el
+  layout.$appendTo 'body'
+
+  new Application {
+    title: 'app'
+    controllerSuffix: '-controller'
+    routes
+  }

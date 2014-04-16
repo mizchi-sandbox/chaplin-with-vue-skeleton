@@ -90,7 +90,25 @@
   globals.require.list = list;
   globals.require.brunch = true;
 })();
-require.register("components/bar/index", function(exports, require, module) {
+require.register("application", function(exports, require, module) {
+var Application, _ref,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+module.exports = Application = (function(_super) {
+  __extends(Application, _super);
+
+  function Application() {
+    _ref = Application.__super__.constructor.apply(this, arguments);
+    return _ref;
+  }
+
+  return Application;
+
+})(Chaplin.Application);
+});
+
+;require.register("components/bar/index", function(exports, require, module) {
 Vue.component('bar', module.exports = Vue.extend({
   template: (require('./template'))()
 }));
@@ -100,6 +118,7 @@ Vue.component('bar', module.exports = Vue.extend({
 var __templateData = function template(locals) {
 var buf = [];
 var jade_mixins = {};
+var jade_interp;
 
 buf.push("<div class=\"bar\">bar</div>");;return buf.join("");
 };
@@ -124,6 +143,7 @@ Vue.component('foo', module.exports = Vue.extend({
 var __templateData = function template(locals) {
 var buf = [];
 var jade_mixins = {};
+var jade_interp;
 
 buf.push("<div class=\"foo\">foo</div>");;return buf.join("");
 };
@@ -148,6 +168,7 @@ Vue.component('layout', module.exports = Vue.extend({
 var __templateData = function template(locals) {
 var buf = [];
 var jade_mixins = {};
+var jade_interp;
 
 buf.push("<div class=\"layout\">layout</div><foo></foo><bar></bar>");;return buf.join("");
 };
@@ -162,8 +183,52 @@ if (typeof define === 'function' && define.amd) {
 }
 });
 
+;require.register("controllers/base/controller", function(exports, require, module) {
+var Controller, _ref,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+module.exports = Controller = (function(_super) {
+  __extends(Controller, _super);
+
+  function Controller() {
+    _ref = Controller.__super__.constructor.apply(this, arguments);
+    return _ref;
+  }
+
+  Controller.prototype.beforeAction = function() {};
+
+  return Controller;
+
+})(Chaplin.Controller);
+});
+
+;require.register("controllers/home-controller", function(exports, require, module) {
+var Controller, HomeController, _ref,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+Controller = require('controllers/base/controller');
+
+module.exports = HomeController = (function(_super) {
+  __extends(HomeController, _super);
+
+  function HomeController() {
+    _ref = HomeController.__super__.constructor.apply(this, arguments);
+    return _ref;
+  }
+
+  HomeController.prototype.index = function() {
+    return console.log('home');
+  };
+
+  return HomeController;
+
+})(Controller);
+});
+
 ;require.register("initialize", function(exports, require, module) {
-var Layout;
+var Application, Layout, routes;
 
 require('components/foo');
 
@@ -171,11 +236,26 @@ require('components/bar');
 
 Layout = require('components/layout');
 
+Application = require('application');
+
+routes = require('routes');
+
 $(function() {
   var layout;
   layout = new Layout;
-  return $('body').append(layout.$el);
+  layout.$appendTo('body');
+  return new Application({
+    title: 'app',
+    controllerSuffix: '-controller',
+    routes: routes
+  });
 });
+});
+
+;require.register("routes", function(exports, require, module) {
+module.exports = function(match) {
+  return match('', 'home#index');
+};
 });
 
 ;
