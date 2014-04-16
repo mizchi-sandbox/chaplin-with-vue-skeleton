@@ -1,2 +1,3 @@
-Vue.component 'layout', module.exports = Vue.extend
+Component = require 'components/base/component'
+Vue.component 'layout', module.exports = Component.extend
   template: (require './template')()

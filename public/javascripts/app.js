@@ -133,6 +133,16 @@ if (typeof define === 'function' && define.amd) {
 }
 });
 
+;require.register("components/base/component", function(exports, require, module) {
+module.exports = Vue.extend({
+  methods: {
+    dispose: function() {
+      return this.$destroy();
+    }
+  }
+});
+});
+
 ;require.register("components/foo/index", function(exports, require, module) {
 Vue.component('foo', module.exports = Vue.extend({
   template: (require('./template'))()
@@ -159,7 +169,11 @@ if (typeof define === 'function' && define.amd) {
 });
 
 ;require.register("components/layout/index", function(exports, require, module) {
-Vue.component('layout', module.exports = Vue.extend({
+var Component;
+
+Component = require('components/base/component');
+
+Vue.component('layout', module.exports = Component.extend({
   template: (require('./template'))()
 }));
 });
