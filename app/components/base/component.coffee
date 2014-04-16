@@ -1,4 +1,5 @@
 module.exports = Vue.extend
-  methods:
-    dispose: ->
-      @$destroy()
+  methods: {}
+
+Vue::dispose = ->
+  @$destroy()

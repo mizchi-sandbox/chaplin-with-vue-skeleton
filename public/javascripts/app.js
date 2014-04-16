@@ -135,12 +135,12 @@ if (typeof define === 'function' && define.amd) {
 
 ;require.register("components/base/component", function(exports, require, module) {
 module.exports = Vue.extend({
-  methods: {
-    dispose: function() {
-      return this.$destroy();
-    }
-  }
+  methods: {}
 });
+
+Vue.prototype.dispose = function() {
+  return this.$destroy();
+};
 });
 
 ;require.register("components/foo/index", function(exports, require, module) {
@@ -159,7 +159,7 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push("<div class=\"foo\">foo</div>");;return buf.join("");
+buf.push("<div class=\"foo\">foo</div>ああああああああ");;return buf.join("");
 };
 if (typeof define === 'function' && define.amd) {
   define([], function() {
@@ -188,7 +188,7 @@ var buf = [];
 var jade_mixins = {};
 var jade_interp;
 
-buf.push("<div class=\"layout\">layout</div><foo></foo><bar></bar>");;return buf.join("");
+buf.push("<div class=\"layout\">layout</div><foo></foo><bar></bar><p><a href=\"/\">/</a></p><p><a href=\"/foo\">/foo</a></p><p><a href=\"/bar\">/bar</a></p>");;return buf.join("");
 };
 if (typeof define === 'function' && define.amd) {
   define([], function() {
@@ -199,6 +199,34 @@ if (typeof define === 'function' && define.amd) {
 } else {
   __templateData;
 }
+});
+
+;require.register("controllers/bar-controller", function(exports, require, module) {
+var BarController, Controller, Foo, _ref,
+  __hasProp = {}.hasOwnProperty,
+  __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+Controller = require('controllers/base/controller');
+
+Foo = require('components/foo');
+
+module.exports = BarController = (function(_super) {
+  __extends(BarController, _super);
+
+  function BarController() {
+    _ref = BarController.__super__.constructor.apply(this, arguments);
+    return _ref;
+  }
+
+  BarController.prototype.index = function() {
+    var foo;
+    foo = this.reuse('foo', Foo);
+    return foo.$appendTo('body');
+  };
+
+  return BarController;
+
+})(Controller);
 });
 
 ;require.register("controllers/base/controller", function(exports, require, module) {
@@ -222,23 +250,30 @@ module.exports = Controller = (function(_super) {
 });
 
 ;require.register("controllers/foo-controller", function(exports, require, module) {
-var Controller, Foo, _ref,
+var Controller, Foo, FooController, _ref,
   __hasProp = {}.hasOwnProperty,
   __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
 Controller = require('controllers/base/controller');
 
-module.exports = Foo = (function(_super) {
-  __extends(Foo, _super);
+Foo = require('components/foo');
 
-  function Foo() {
-    _ref = Foo.__super__.constructor.apply(this, arguments);
+module.exports = FooController = (function(_super) {
+  __extends(FooController, _super);
+
+  function FooController() {
+    _ref = FooController.__super__.constructor.apply(this, arguments);
     return _ref;
   }
 
-  Foo.prototype.index = function() {};
+  FooController.prototype.index = function() {
+    var foo;
+    console.log('foo');
+    foo = this.reuse('foo', Foo);
+    return foo.$appendTo('body');
+  };
 
-  return Foo;
+  return FooController;
 
 })(Controller);
 });
@@ -294,7 +329,9 @@ $(function() {
 
 ;require.register("routes", function(exports, require, module) {
 module.exports = function(match) {
-  return match('', 'home#index');
+  match('', 'home#index');
+  match('foo', 'foo#index');
+  return match('bar', 'bar#index');
 };
 });
 
