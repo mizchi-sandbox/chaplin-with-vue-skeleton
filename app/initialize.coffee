@@ -1,5 +1,3 @@
-require 'components/foo'
-require 'components/bar'
 Layout = require 'components/layout'
 
 Application = require 'application'

@@ -3,3 +3,4 @@ module.exports = Vue.extend
 
 Vue::dispose = ->
   @$destroy()
+  console.info 'dispose'
